@@ -19,18 +19,18 @@
 
 #### Directions
 
-- UP
-- DOWN
-- LEFT
-- RIGHT
+- up
+- down
+- left
+- right
 
 #### Piece Actions
 
-- NOP
-- MOVE_UP
-- MOVE_DOWN
-- MOVE_LEFT
-- MOVE_RIGHT
+- no_action
+- move_up
+- move_down
+- move_left
+- move_right
 
 ### Messages
 
@@ -48,7 +48,7 @@
                 "player_id": "123e4567-e89b-12d3-a456-426614174000",
                 "position": {
                     "x": 0,
-                    "y": 1,
+                    "y": 1
                 }
             },
             {
@@ -56,9 +56,9 @@
                 "player_id": "123e4567-e89b-12d3-a456-426614174000",
                 "position": {
                     "x": 10,
-                    "y": 15,
+                    "y": 15
                 }
-            },
+            }
         ]
     }
 }
@@ -76,7 +76,7 @@
                     {
                         "player_id": "123e4567-e89b-12d3-a456-426614174000",
                         "piece_id": "123e4567-e89b-12d3-a456-426614174000",
-                        "action": "piece action enum",
+                        "action": "piece action enum"
                     }
                 ],
                 "outcomes": [
@@ -104,7 +104,7 @@
         "off_board": false,
         "new_position": {
             "x": 10,
-            "y": 15,
+            "y": 15
         }
     }
 }
@@ -121,7 +121,7 @@
         ],
         "collision_point": {
             "x": 10,
-            "y": 15,
+            "y": 15
         }
     }
 }
@@ -149,11 +149,11 @@
     "type": "push_conflict",
     "payload": {
         "piece_ids": [
-            "123e4567-e89b-12d3-a456-426614174000",
+            "123e4567-e89b-12d3-a456-426614174000"
         ],
         "collision_point": {
             "x": 10,
-            "y": 15,
+            "y": 15
         }
     }
 }
@@ -168,11 +168,11 @@
         "moves": [
             {
                 "piece_id": "123e4567-e89b-12d3-a456-426614174000",
-                "action": "piece action enum",
+                "action": "piece action enum"
             },
             {
                 "piece_id": "123e4567-e89b-12d3-a456-426614174001",
-                "action": "piece action enum",
+                "action": "piece action enum"
             }
         ]
     }
