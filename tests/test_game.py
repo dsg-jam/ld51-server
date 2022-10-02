@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from ld51_server.game import BoardState, PieceInformation
+from ld51_server.board import BoardState, PieceInformation
 from ld51_server.models import PieceAction, PlayerMove, Position
 
 from . import DATA_DIR
