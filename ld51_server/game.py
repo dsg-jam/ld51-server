@@ -81,6 +81,7 @@ class BoardState:
                 assert info is not None
                 old_pos = info.position
                 new_pos = old_pos.offset_in_direction(push_outcome.direction)
+                assert new_pos not in temp_piece_by_positions
                 temp_piece_by_positions[new_pos] = self._piece_by_position.pop(old_pos)
         for new_pos in temp_piece_by_positions.keys():
             assert new_pos not in self._piece_by_position
@@ -191,10 +192,10 @@ class BoardState:
         }
         push_outcomes: list[PushOutcomePayload] = []
 
+        victim_pieces: dict[uuid.UUID, list[uuid.UUID]] = {}
         i = 0
         while True:
             found_complete_chain = False
-            victim_pieces: dict[uuid.UUID, list[uuid.UUID]] = {}
             complete_push_chains: set[uuid.UUID] = set()
 
             for pusher_piece_id, victim_piece_ids in push_chains_by_piece_id.items():
@@ -231,11 +232,18 @@ class BoardState:
                 i += 1
                 continue
 
+            resolved_pusher_conflicts: set[frozenset[uuid.UUID]] = set()
             for victim_piece_id, pusher_piece_ids in victim_pieces.items():
                 if len(pusher_piece_ids) < 2:
                     # not a conflict
                     continue
                 # push conflicts
+                pusher_conflict_key = frozenset(pusher_piece_ids)
+                if pusher_conflict_key in resolved_pusher_conflicts:
+                    # already resolved
+                    continue
+                resolved_pusher_conflicts.add(pusher_conflict_key)
+
                 victim_piece = self.get_piece_by_id(victim_piece_id)
                 event.actions.extend(
                     moves_by_piece_id[piece_id] for piece_id in pusher_piece_ids
