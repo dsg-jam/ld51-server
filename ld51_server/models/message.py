@@ -6,7 +6,7 @@ from .general import GameOver, PlayerMove, PlayerPiecePosition
 from .timeline import TimelineEvent
 
 
-class RoundStartMessagePayload(BaseModel):
+class RoundStartPayload(BaseModel):
     round_number: int
     round_duration: float
     board_state: list[PlayerPiecePosition]
@@ -14,51 +14,70 @@ class RoundStartMessagePayload(BaseModel):
 
 class RoundStartMessage(BaseModel):
     type: Literal["round_start"]
-    payload: RoundStartMessagePayload
+    payload: RoundStartPayload
 
 
-class RoundResultMessagePayload(BaseModel):
+class RoundResultPayload(BaseModel):
     timeline: list[TimelineEvent]
     game_over: GameOver | None
 
 
 class RoundResultMessage(BaseModel):
     type: Literal["round_result"]
-    payload: RoundResultMessagePayload
+    payload: RoundResultPayload
 
 
-class PlayerMovesMessagePayload(BaseModel):
+class PlayerMovesPayload(BaseModel):
     moves: list[PlayerMove]
 
 
 class PlayerMovesMessage(BaseModel):
     type: Literal["player_moves"]
-    payload: PlayerMovesMessagePayload
+    payload: PlayerMovesPayload
+
+
+class ReadyForNextRoundPayload(BaseModel):
+    ...
 
 
 class ReadyForNextRoundMessage(BaseModel):
     type: Literal["ready_for_next_round"]
+    payload: ReadyForNextRoundPayload = Field(default_factory=ReadyForNextRoundPayload)
+
+
+MessageT = Union[
+    RoundStartMessage,
+    RoundResultMessage,
+    PlayerMovesMessage,
+    ReadyForNextRoundMessage,
+]
+MessagePayloadT = Union[
+    RoundStartPayload,
+    RoundResultPayload,
+    PlayerMovesPayload,
+    ReadyForNextRoundPayload,
+]
 
 
 class Message(BaseModel):
     __root__: Annotated[
-        Union[
-            RoundStartMessage,
-            RoundResultMessage,
-            PlayerMovesMessage,
-            ReadyForNextRoundMessage,
-        ],
+        MessageT,
         Field(discriminator="type"),
     ]
 
+    @property
+    def payload(self) -> MessagePayloadT:
+        return self.__root__.payload
+
 
 __all__ = [
-    RoundStartMessagePayload.__name__,
+    RoundStartPayload.__name__,
     RoundStartMessage.__name__,
-    RoundResultMessagePayload.__name__,
+    RoundResultPayload.__name__,
     RoundResultMessage.__name__,
-    PlayerMovesMessagePayload.__name__,
+    PlayerMovesPayload.__name__,
     PlayerMovesMessage.__name__,
+    ReadyForNextRoundPayload.__name__,
     ReadyForNextRoundMessage.__name__,
     Message.__name__,
 ]

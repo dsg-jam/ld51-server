@@ -10,6 +10,9 @@ curl -sSL https://install.python-poetry.org | python3 -
 
 # install task runner plugin
 poetry self add 'poethepoet[poetry_plugin]'
+
+# install dependencies
+poetry install
 ```
 
 ### Running the server

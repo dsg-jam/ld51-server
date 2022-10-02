@@ -49,11 +49,24 @@ class PushConflictOutcome(BaseModel):
     payload: PushConflictOutcomePayload
 
 
+OutcomeT = Union[MoveOutcome, MoveConflictOutcome, PushOutcome, PushConflictOutcome]
+OutcomePayloadT = Union[
+    MoveOutcomePayload,
+    MoveConflictOutcomePayload,
+    PushOutcomePayload,
+    PushConflictOutcomePayload,
+]
+
+
 class Outcome(BaseModel):
     __root__: Annotated[
-        Union[MoveOutcome, MoveConflictOutcome, PushOutcome, PushConflictOutcome],
+        OutcomeT,
         Field(discriminator="type"),
     ]
+
+    @property
+    def payload(self) -> OutcomePayloadT:
+        return self.__root__.payload
 
 
 class TimelineEventAction(BaseModel):
@@ -76,6 +89,8 @@ __all__ = [
     PushOutcome.__name__,
     PushConflictOutcomePayload.__name__,
     PushConflictOutcome.__name__,
+    "OutcomeT",
+    "OutcomePayloadT",
     Outcome.__name__,
     TimelineEventAction.__name__,
     TimelineEvent.__name__,
