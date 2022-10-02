@@ -20,3 +20,9 @@ poetry install
 ```sh
 poetry poe run
 ```
+
+### Running the tests
+
+```sh
+poetry poe test
+```

@@ -52,8 +52,8 @@ class PushOutcome(BaseModel):
 
 
 class PushConflictOutcomePayload(BaseModel):
-    piece_a: uuid.UUID
-    piece_b: uuid.UUID
+    piece_ids: list[uuid.UUID]
+    collision_point: Position | None
 
 
 class PushConflictOutcome(BaseModel):
