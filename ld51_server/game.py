@@ -82,6 +82,8 @@ class BoardState:
                 old_pos = info.position
                 new_pos = old_pos.offset_in_direction(push_outcome.direction)
                 temp_piece_by_positions[new_pos] = self._piece_by_position.pop(old_pos)
+        for new_pos in temp_piece_by_positions.keys():
+            assert new_pos not in self._piece_by_position
         self._piece_by_position.update(temp_piece_by_positions)
 
     def is_position_on_board(self, pos: Position) -> bool:
@@ -183,7 +185,7 @@ class BoardState:
         Every remaining move passed to this function must be a push!
         """
         event = TimelineEvent(actions=[], outcomes=[])
-        # mapping from pusher to victims
+        # mapping from pusher to victims, the last victim can be another moving piece, which might or might not be moving this round as well
         push_chains_by_piece_id: dict[uuid.UUID, list[uuid.UUID]] = {
             piece_id: [] for piece_id in remaining_moves_by_piece_id.keys()
         }
@@ -211,12 +213,11 @@ class BoardState:
                     complete_push_chains.add(pusher_piece_id)
                     continue
                 new_piece_id = new_piece.piece_id
+                victim_piece_ids.append(new_piece_id)
                 if new_piece_id in push_chains_by_piece_id:
                     found_complete_chain = True
                     complete_push_chains.add(pusher_piece_id)
                     continue
-
-                victim_piece_ids.append(new_piece_id)
 
                 try:
                     other_pusher_piece_ids = victim_pieces[new_piece_id]
@@ -254,6 +255,9 @@ class BoardState:
             for pusher_piece_id in complete_push_chains:
                 push_dir = remaining_moves_by_piece_id[pusher_piece_id]
                 victim_piece_ids = push_chains_by_piece_id[pusher_piece_id]
+                if victim_piece_ids[-1] in complete_push_chains:
+                    del victim_piece_ids[-1]
+
                 push_outcome = PushOutcomePayload(
                     pusher_piece_id=pusher_piece_id,
                     victim_piece_ids=victim_piece_ids,
