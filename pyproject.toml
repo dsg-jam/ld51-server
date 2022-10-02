@@ -21,6 +21,8 @@ uvicorn = "^0.18.3"
 
 [tool.poe.tasks]
 run = "uvicorn ld51_server:app --reload"
+test = "pytest"
+lint = "pylint ld51_server/"
 _sort_imports = "isort ."
 _format = "black ."
 format = ["_sort_imports", "_format"]
