@@ -26,6 +26,7 @@ lint = "pylint ld51_server/"
 _sort_imports = "isort ."
 _format = "black ."
 format = ["_sort_imports", "_format"]
+print-message-schema = { "script" = "ld51_server.dev.cmd:print_message_schema" }
 
 [tool.isort]
 profile = "black"

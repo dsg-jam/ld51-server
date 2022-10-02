@@ -10,6 +10,19 @@ class Direction(str, enum.Enum):
     LEFT = "left"
     RIGHT = "right"
 
+    def get_opposite(self) -> "Direction":
+        match self:
+            case self.UP:
+                return self.DOWN
+            case self.DOWN:
+                return self.UP
+            case self.LEFT:
+                return self.RIGHT
+            case self.RIGHT:
+                return self.LEFT
+            case _:
+                raise NotImplementedError
+
 
 class PieceAction(str, enum.Enum):
     NO_ACTION = "no_action"
