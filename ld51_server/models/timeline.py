@@ -16,6 +16,10 @@ class MoveOutcome(BaseModel):
     type: Literal["move"]
     payload: MoveOutcomePayload
 
+    @classmethod
+    def build(cls, payload: MoveOutcomePayload):
+        return cls(type="move", payload=payload)
+
 
 class MoveConflictOutcomePayload(BaseModel):
     piece_ids: list[uuid.UUID]
@@ -25,6 +29,10 @@ class MoveConflictOutcomePayload(BaseModel):
 class MoveConflictOutcome(BaseModel):
     type: Literal["move_conflict"]
     payload: MoveConflictOutcomePayload
+
+    @classmethod
+    def build(cls, payload: MoveConflictOutcomePayload):
+        return cls(type="move_conflict", payload=payload)
 
 
 class PushOutcomePayload(BaseModel):
@@ -38,6 +46,10 @@ class PushOutcome(BaseModel):
     type: Literal["push"]
     payload: PushOutcomePayload
 
+    @classmethod
+    def build(cls, payload: PushOutcomePayload):
+        return cls(type="push", payload=payload)
+
 
 class PushConflictOutcomePayload(BaseModel):
     piece_a: uuid.UUID
@@ -47,6 +59,10 @@ class PushConflictOutcomePayload(BaseModel):
 class PushConflictOutcome(BaseModel):
     type: Literal["push_conflict"]
     payload: PushConflictOutcomePayload
+
+    @classmethod
+    def build(cls, payload: PushConflictOutcomePayload):
+        return cls(type="push_conflict", payload=payload)
 
 
 OutcomeT = Union[MoveOutcome, MoveConflictOutcome, PushOutcome, PushConflictOutcome]
@@ -78,6 +94,9 @@ class TimelineEventAction(BaseModel):
 class TimelineEvent(BaseModel):
     actions: list[TimelineEventAction]
     outcomes: list[Outcome]
+
+    def is_empty(self) -> bool:
+        return (not self.actions) and (not self.outcomes)
 
 
 __all__ = [

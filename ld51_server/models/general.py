@@ -58,9 +58,9 @@ class Position(BaseModel):
         x, y = self.x, self.y
         match dir:
             case Direction.UP:
-                y += 1
-            case Direction.DOWN:
                 y -= 1
+            case Direction.DOWN:
+                y += 1
             case Direction.LEFT:
                 x -= 1
             case Direction.RIGHT:
