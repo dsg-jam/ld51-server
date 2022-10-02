@@ -9,7 +9,6 @@ packages = [{ include = "ld51_server" }]
 [tool.poetry.dependencies]
 python = "^3.10"
 fastapi = "^0.85.0"
-uuid = "^1.30"
 websockets = "^10.3"
 
 [tool.poetry.group.dev.dependencies]

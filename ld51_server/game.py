@@ -42,6 +42,9 @@ class PieceInformation:
 class BoardState:
     _piece_by_position: dict[Position, PieceInformation]
 
+    def __init__(self) -> None:
+        self._piece_by_position = {}
+
     def get_piece_by_id(self, piece_id: uuid.UUID) -> PlayerPiecePosition | None:
         for pos, info in self._piece_by_position.items():
             if info.piece_id == piece_id:
@@ -66,7 +69,7 @@ class BoardState:
             info
         )
 
-    def perform_push_actions(
+    def _execute_push_chains(
         self, push_actions: list[tuple[Direction, list[uuid.UUID]]]
     ) -> None:
         temp_piece_by_positions = {}
@@ -132,7 +135,7 @@ class BoardState:
                     candidates = trivial_move_candidates[new_pos]
                     candidates.append(piece_id)
                 except KeyError:
-                    candidates[new_pos] = [piece_id]
+                    trivial_move_candidates[new_pos] = [piece_id]
 
                 del remaining_moves_by_piece_id[piece_id]
 
@@ -180,7 +183,7 @@ class BoardState:
         # mapping from pusher to victims
         push_chains_by_piece_id: dict[uuid.UUID, list[uuid.UUID]] = {}
 
-        for piece_id, move_dir in remaining_moves_by_piece_id:
+        for piece_id, move_dir in remaining_moves_by_piece_id.items():
             piece = self.get_piece_by_id(piece_id)
             old_pos = piece.position
             push_chain: list[uuid.UUID] = []
@@ -196,7 +199,7 @@ class BoardState:
 
         chain_len = -1
         found_chain = False
-        push_actions: list[tuple[Direction, list[uuid.UUID]]] = []
+        push_chains: list[tuple[Direction, list[uuid.UUID]]] = []
         while not found_chain:
             chain_len += 1
             for pusher_piece_id, victim_piece_ids in push_chains_by_piece_id.items():
@@ -244,9 +247,9 @@ class BoardState:
                     )
                 )
                 del remaining_moves_by_piece_id[pusher_piece_id]
-                push_actions.append((move_dir, [pusher_piece_id, *victim_piece_ids]))
+                push_chains.append((move_dir, [pusher_piece_id, *victim_piece_ids]))
 
-        self.perform_push_actions(push_actions)
+        self._execute_push_chains(push_chains)
         return event
 
     def perform_player_moves(self, moves: list[PlayerMove]) -> list[TimelineEvent]:
