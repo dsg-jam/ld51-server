@@ -1,13 +1,12 @@
 import dataclasses
 import uuid
-from typing import Iterator
+
+import networkx
 
 from .models import (
     Direction,
     MoveConflictOutcome,
     MoveConflictOutcomePayload,
-    MoveOutcome,
-    MoveOutcomePayload,
     PlayerMove,
     PlayerPiecePosition,
     Position,
@@ -91,194 +90,158 @@ class BoardState:
         #  TODO
         return True
 
-    def _phase1_moves(
+    def _isolate_complete_push_chains(
         self,
-        moves_by_piece_id: dict[uuid.UUID, PlayerMove],
         remaining_moves_by_piece_id: dict[uuid.UUID, Direction],
-    ) -> Iterator[TimelineEvent]:
+        complete_push_chains: dict[uuid.UUID, list[uuid.UUID]],
+    ) -> None:
+        chain_length = 0
+        incomple_push_chains: dict[uuid.UUID, list[uuid.UUID]] = {}
+
         while remaining_moves_by_piece_id:
-            event = TimelineEvent(actions=[], outcomes=[])
-
-            # map target position to pieces that want to move to that spot
-            trivial_move_candidates: dict[Position, list[uuid.UUID]] = {}
-            # map position to piece id and push direction
-            collision_candidates: dict[Position, tuple[uuid.UUID, Direction]] = {}
-
-            for piece_id, move_dir in remaining_moves_by_piece_id.copy().items():
-                piece = self.get_piece_by_id(piece_id)
-                new_pos = piece.position.offset_in_direction(move_dir)
-                if self.has_piece_at_position(new_pos):
-                    # someone is already there, we want to check whether they're pushing back
-                    try:
-                        other_piece_id, other_dir = collision_candidates[new_pos]
-                    except KeyError:
-                        # the other piece either isn't moving this time, or we just haven't encounterd it yet
-                        collision_candidates[new_pos] = (piece_id, move_dir)
-                        continue
-
-                    if move_dir.get_opposite() != other_dir:
-                        # the other piece isn't colliding with us. Either it's colliding with someone else, or it's going to push its pieces.
-                        # Either way, we don't know yet what's going to happen, so we wait.
-                        continue
-
-                    # looks like we're colliding with the other piece
-                    event.actions.append(moves_by_piece_id[piece_id])
-                    event.actions.append(moves_by_piece_id[other_piece_id])
-                    event.outcomes.append(
-                        PushConflictOutcome.build(
-                            PushConflictOutcomePayload(
-                                piece_ids=[other_piece_id, piece_id],
-                                collision_point=None,
-                            )
-                        )
-                    )
-                    # which means both moves are done
-                    del remaining_moves_by_piece_id[piece_id]
-                    del remaining_moves_by_piece_id[other_piece_id]
+            finished = False
+            for pusher_piece_id, push_dir in remaining_moves_by_piece_id.copy().items():
+                pusher_piece = self.get_piece_by_id(pusher_piece_id)
+                if pusher_piece is None:
+                    # this piece no longer exists
+                    del remaining_moves_by_piece_id[pusher_piece_id]
                     continue
-
                 try:
-                    candidates = trivial_move_candidates[new_pos]
-                    candidates.append(piece_id)
+                    push_chain = incomple_push_chains[pusher_piece_id]
                 except KeyError:
-                    trivial_move_candidates[new_pos] = [piece_id]
-
-                del remaining_moves_by_piece_id[piece_id]
-
-            for pos, piece_ids in trivial_move_candidates.items():
-                if len(piece_ids) == 1:
-                    piece_id = piece_ids[0]
-                    event.actions.append(moves_by_piece_id[piece_id])
-                    event.outcomes.append(
-                        MoveOutcome.build(
-                            MoveOutcomePayload(
-                                piece_id=piece_id,
-                                off_board=(not self.is_position_on_board(pos)),
-                                new_position=pos,
-                            )
-                        )
-                    )
-                    self.set_piece_position(piece_id, pos)
+                    push_chain = incomple_push_chains[pusher_piece_id] = [
+                        pusher_piece_id
+                    ]
+                victim_pos = pusher_piece.position.offset_in_direction(
+                    push_dir, steps=chain_length + 1
+                )
+                victim_piece = self.get_piece_at_position(victim_pos)
+                if victim_piece is not None:
+                    push_chain.append(victim_piece.piece_id)
                     continue
 
-                event.actions.extend(
-                    moves_by_piece_id[piece_id] for piece_id in piece_ids
-                )
-                event.outcomes.append(
-                    MoveConflictOutcome.build(
-                        MoveConflictOutcomePayload(
-                            piece_ids=piece_ids, collision_point=pos
-                        )
-                    )
-                )
+                complete_push_chains[pusher_piece_id] = push_chain
+                finished = True
 
-            if event.is_empty():
-                break
-            yield event
+            if finished:
+                return
+            chain_length += 1
 
-    def _phase2_move(
+    def _remove_cycles(
+        self, complete_push_chains: dict[uuid.UUID, list[uuid.UUID]]
+    ) -> None:
+        graph = networkx.DiGraph()
+        for push_chain in complete_push_chains.values():
+            pusher_a_piece_id, *victim_piece_ids = push_chain
+            for pusher_b_piece_id in victim_piece_ids:
+                if pusher_b_piece_id not in complete_push_chains:
+                    # this isn't a pusher
+                    continue
+                graph.add_edge(pusher_a_piece_id, pusher_b_piece_id)
+
+        for cycle_pieces in networkx.simple_cycles(graph):
+            if len(cycle_pieces) <= 2:
+                continue
+
+            pusher_a_piece_id = cycle_pieces[-1]
+            for pusher_b_piece_id in cycle_pieces:
+                push_chain = complete_push_chains[pusher_a_piece_id]
+                b_in_chain_index = push_chain.index(pusher_b_piece_id)
+                del push_chain[b_in_chain_index:]
+                pusher_a_piece_id = pusher_b_piece_id
+
+    def _perform_player_move_event(
         self,
         moves_by_piece_id: dict[uuid.UUID, PlayerMove],
         remaining_moves_by_piece_id: dict[uuid.UUID, Direction],
     ) -> TimelineEvent:
-        """Phase 2 or the "push phase".
-
-        Every remaining move passed to this function must be a push!
-        """
         event = TimelineEvent(actions=[], outcomes=[])
-        # mapping from pusher to victims, the last victim can be another moving piece, which might or might not be moving this round as well
-        push_chains_by_piece_id: dict[uuid.UUID, list[uuid.UUID]] = {
-            piece_id: [] for piece_id in remaining_moves_by_piece_id.keys()
-        }
-        push_outcomes: list[PushOutcomePayload] = []
+        complete_push_chains: dict[uuid.UUID, list[uuid.UUID]] = {}
+        self._isolate_complete_push_chains(
+            remaining_moves_by_piece_id, complete_push_chains
+        )
+        self._remove_cycles(complete_push_chains)
 
-        victim_pieces: dict[uuid.UUID, list[uuid.UUID]] = {}
-        i = 0
-        while True:
-            found_complete_chain = False
-            complete_push_chains: set[uuid.UUID] = set()
+        target_pos_to_pushers: dict[Position, list[uuid.UUID]] = {}
+        victim_to_pushers: dict[uuid.UUID, list[uuid.UUID]] = {}
+        for pusher_piece_id, push_chain in complete_push_chains.items():
+            pusher_piece = self.get_piece_by_id(pusher_piece_id)
+            push_dir = remaining_moves_by_piece_id[pusher_piece_id]
+            target_pos = pusher_piece.position.offset_in_direction(
+                push_dir, steps=len(push_chain)
+            )
+            try:
+                target_pos_to_pushers[target_pos].append(pusher_piece_id)
+            except KeyError:
+                target_pos_to_pushers[target_pos] = [pusher_piece_id]
 
-            for pusher_piece_id, victim_piece_ids in push_chains_by_piece_id.items():
-                # as soon as we find the first complete chain we need to stop
-                assert i == len(victim_piece_ids)
-                push_dir = remaining_moves_by_piece_id[pusher_piece_id]
-                if i > 0:
-                    current_piece_id = victim_piece_ids[i - 1]
-                else:
-                    current_piece_id = pusher_piece_id
-                current_piece = self.get_piece_by_id(current_piece_id)
-                new_pos = current_piece.position.offset_in_direction(push_dir)
-                new_piece = self.get_piece_at_position(new_pos)
-                if new_piece is None:
-                    found_complete_chain = True
-                    complete_push_chains.add(pusher_piece_id)
-                    continue
-                new_piece_id = new_piece.piece_id
-                victim_piece_ids.append(new_piece_id)
-                if new_piece_id in push_chains_by_piece_id:
-                    found_complete_chain = True
-                    complete_push_chains.add(pusher_piece_id)
-                    continue
-
+            for piece_id in push_chain:
                 try:
-                    other_pusher_piece_ids = victim_pieces[new_piece_id]
+                    victim_to_pushers[piece_id].append(pusher_piece_id)
                 except KeyError:
-                    victim_pieces[new_piece_id] = [pusher_piece_id]
-                else:
-                    found_complete_chain = True
-                    other_pusher_piece_ids.append(pusher_piece_id)
+                    victim_to_pushers[piece_id] = [pusher_piece_id]
 
-            if not found_complete_chain:
-                i += 1
+        for target_pos, pushers in target_pos_to_pushers.items():
+            if len(pushers) < 2:
                 continue
 
-            resolved_pusher_conflicts: set[frozenset[uuid.UUID]] = set()
-            for victim_piece_id, pusher_piece_ids in victim_pieces.items():
-                if len(pusher_piece_ids) < 2:
-                    # not a conflict
-                    continue
-                # push conflicts
-                pusher_conflict_key = frozenset(pusher_piece_ids)
-                if pusher_conflict_key in resolved_pusher_conflicts:
-                    # already resolved
-                    continue
-                resolved_pusher_conflicts.add(pusher_conflict_key)
-
-                victim_piece = self.get_piece_by_id(victim_piece_id)
-                event.actions.extend(
-                    moves_by_piece_id[piece_id] for piece_id in pusher_piece_ids
-                )
-                event.outcomes.append(
-                    PushConflictOutcome.build(
-                        PushConflictOutcomePayload(
-                            piece_ids=[victim_piece_id, *pusher_piece_ids],
-                            collision_point=victim_piece.position,
-                        )
+            # multiple pieces trying to occupy the same empty spot
+            for piece_id in pushers:
+                del remaining_moves_by_piece_id[piece_id]
+                del complete_push_chains[piece_id]
+            event.actions.extend(moves_by_piece_id[piece_id] for piece_id in pushers)
+            event.outcomes.append(
+                MoveConflictOutcome.build(
+                    MoveConflictOutcomePayload(
+                        piece_ids=pushers,
+                        collision_point=target_pos,
                     )
                 )
-                for piece_id in pusher_piece_ids:
-                    del remaining_moves_by_piece_id[piece_id]
-                    complete_push_chains.discard(piece_id)
+            )
 
-            for pusher_piece_id in complete_push_chains:
-                push_dir = remaining_moves_by_piece_id[pusher_piece_id]
-                victim_piece_ids = push_chains_by_piece_id[pusher_piece_id]
-                if victim_piece_ids[-1] in complete_push_chains:
-                    del victim_piece_ids[-1]
+        handled_push_collisions: set[uuid.UUID] = set()
+        for pushers in victim_to_pushers.values():
+            if len(pushers) < 2:
+                continue
 
-                push_outcome = PushOutcomePayload(
-                    pusher_piece_id=pusher_piece_id,
-                    victim_piece_ids=victim_piece_ids,
-                    direction=push_dir,
+            unhandled_collisions: set[uuid.UUID] = (
+                set(pushers) - handled_push_collisions
+            )
+            if not unhandled_collisions:
+                continue
+
+            handled_push_collisions.update(unhandled_collisions)
+
+            # multiple pieces are trying to push the same piece
+
+            for piece_id in pushers:
+                del remaining_moves_by_piece_id[piece_id]
+                del complete_push_chains[piece_id]
+            event.actions.extend(moves_by_piece_id[piece_id] for piece_id in pushers)
+            event.outcomes.append(
+                PushConflictOutcome.build(
+                    PushConflictOutcomePayload(
+                        piece_ids=pushers,
+                        collision_point=target_pos,
+                    )
                 )
-                push_outcomes.append(push_outcome)
-                event.actions.append(moves_by_piece_id[pusher_piece_id])
-                event.outcomes.append(PushOutcome.build(push_outcome))
-                del remaining_moves_by_piece_id[pusher_piece_id]
+            )
 
-            break
+        push_outcomes = []
+        for push_chain in complete_push_chains.values():
+            pusher_piece_id, *victim_piece_ids = push_chain
+            event.actions.append(moves_by_piece_id[pusher_piece_id])
+            push_outcome = PushOutcomePayload(
+                pusher_piece_id=pusher_piece_id,
+                victim_piece_ids=victim_piece_ids,
+                direction=remaining_moves_by_piece_id[pusher_piece_id],
+            )
+            push_outcomes.append(push_outcome)
+            event.outcomes.append(PushOutcome.build(push_outcome))
+            del remaining_moves_by_piece_id[pusher_piece_id]
 
         self._execute_push_chains(push_outcomes)
+
         return event
 
     def perform_player_moves(self, moves: list[PlayerMove]) -> list[TimelineEvent]:
@@ -296,13 +259,9 @@ class BoardState:
             remaining_moves_by_piece_id[move.piece_id] = move_dir
 
         events = []
-        while True:
-            events.extend(
-                self._phase1_moves(moves_by_piece_id, remaining_moves_by_piece_id)
+        while remaining_moves_by_piece_id:
+            event = self._perform_player_move_event(
+                moves_by_piece_id, remaining_moves_by_piece_id
             )
-            if not remaining_moves_by_piece_id:
-                break
-            event = self._phase2_move(moves_by_piece_id, remaining_moves_by_piece_id)
             events.append(event)
-
         return events

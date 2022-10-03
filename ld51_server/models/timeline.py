@@ -6,21 +6,6 @@ from pydantic import BaseModel, Field
 from .general import Direction, PieceAction, Position
 
 
-class MoveOutcomePayload(BaseModel):
-    piece_id: uuid.UUID
-    off_board: bool
-    new_position: Position
-
-
-class MoveOutcome(BaseModel):
-    type: Literal["move"]
-    payload: MoveOutcomePayload
-
-    @classmethod
-    def build(cls, payload: MoveOutcomePayload):
-        return cls(type="move", payload=payload)
-
-
 class MoveConflictOutcomePayload(BaseModel):
     piece_ids: list[uuid.UUID]
     collision_point: Position
@@ -65,9 +50,8 @@ class PushConflictOutcome(BaseModel):
         return cls(type="push_conflict", payload=payload)
 
 
-OutcomeT = Union[MoveOutcome, MoveConflictOutcome, PushOutcome, PushConflictOutcome]
+OutcomeT = Union[MoveConflictOutcome, PushOutcome, PushConflictOutcome]
 OutcomePayloadT = Union[
-    MoveOutcomePayload,
     MoveConflictOutcomePayload,
     PushOutcomePayload,
     PushConflictOutcomePayload,
@@ -100,8 +84,6 @@ class TimelineEvent(BaseModel):
 
 
 __all__ = [
-    MoveOutcomePayload.__name__,
-    MoveOutcome.__name__,
     MoveConflictOutcomePayload.__name__,
     MoveConflictOutcome.__name__,
     PushOutcomePayload.__name__,
