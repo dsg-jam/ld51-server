@@ -1,0 +1,67 @@
+[
+  {
+    "actions": [
+      {
+        "player_id": "00000000-0000-0000-0000-000000000000",
+        "piece_id": "1882c891-c8e8-5040-9914-92226dd91849",
+        "action": "move_down"
+      },
+      {
+        "player_id": "00000000-0000-0000-0000-000000000000",
+        "piece_id": "d6bcda58-eaf5-5111-986b-36189ab57944",
+        "action": "move_up"
+      }
+    ],
+    "outcomes": [
+      {
+        "type": "move_conflict",
+        "payload": {
+          "piece_ids": [
+            "1882c891-c8e8-5040-9914-92226dd91849",
+            "d6bcda58-eaf5-5111-986b-36189ab57944"
+          ],
+          "collision_point": {
+            "x": 2,
+            "y": 1
+          }
+        }
+      }
+    ]
+  },
+  {
+    "actions": [
+      {
+        "player_id": "00000000-0000-0000-0000-000000000000",
+        "piece_id": "57843557-76b2-5568-9503-d05ad730b08e",
+        "action": "move_right"
+      },
+      {
+        "player_id": "00000000-0000-0000-0000-000000000000",
+        "piece_id": "897264db-5a3f-5538-938d-062a7897f4e4",
+        "action": "move_right"
+      }
+    ],
+    "outcomes": [
+      {
+        "type": "push",
+        "payload": {
+          "pusher_piece_id": "57843557-76b2-5568-9503-d05ad730b08e",
+          "victim_piece_ids": [
+            "1882c891-c8e8-5040-9914-92226dd91849"
+          ],
+          "direction": "right"
+        }
+      },
+      {
+        "type": "push",
+        "payload": {
+          "pusher_piece_id": "897264db-5a3f-5538-938d-062a7897f4e4",
+          "victim_piece_ids": [
+            "8cc4f4f3-0d5f-59b0-812a-0dabb3b2a699"
+          ],
+          "direction": "right"
+        }
+      }
+    ]
+  }
+]

@@ -223,7 +223,8 @@ class BoardState:
                 PushConflictOutcome.build(
                     PushConflictOutcomePayload(
                         piece_ids=pushers,
-                        collision_point=target_pos,
+                        # TODO: determine
+                        collision_point=None,
                     )
                 )
             )

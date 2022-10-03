@@ -8,6 +8,7 @@ from pydantic import BaseModel, ValidationError
 
 from ld51_server.board import BoardState, PieceInformation
 from ld51_server.models import PieceAction, PlayerMove, Position, TimelineEvent
+from ld51_server.models.timeline import Outcome
 
 from . import DATA_DIR
 
@@ -144,9 +145,19 @@ class Timeline(BaseModel):
     __root__: list[TimelineEvent]
 
 
+def _normalize_outcome(outcome: Outcome):
+    payload = outcome.payload
+    try:
+        payload.piece_ids.sort()
+    except Exception:
+        pass
+
+
 def _normalize_events(events: list[TimelineEvent]) -> None:
     for event in events:
         event.actions.sort(key=lambda a: a.piece_id)
+        for outcome in event.outcomes:
+            _normalize_outcome(outcome)
         event.outcomes.sort(key=lambda e: e.json())
 
 
