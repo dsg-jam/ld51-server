@@ -60,10 +60,7 @@
             "317cb2ff-3fcb-5e0f-b25a-52125850e919",
             "f8ca590a-8db9-5f55-b1f0-e8207f7adc5b"
           ],
-          "collision_point": {
-            "x": 2,
-            "y": 1
-          }
+          "collision_point": null
         }
       }
     ]
