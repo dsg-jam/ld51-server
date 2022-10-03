@@ -10,6 +10,7 @@ packages = [{ include = "ld51_server" }]
 python = "^3.10"
 fastapi = "^0.85.0"
 websockets = "^10.3"
+networkx = "^2.8.7"
 
 [tool.poetry.group.dev.dependencies]
 isort = "^5.10.1"

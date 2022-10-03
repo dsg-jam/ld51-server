@@ -3,6 +3,8 @@ from datetime import datetime
 
 from fastapi import WebSocket
 
+from .models import Message
+
 
 class Player:
     _id: uuid.UUID
@@ -48,3 +50,9 @@ class Lobby:
 
         self._player_by_id[player.player_id] = player
         # TODO: send hello to all other players
+
+    async def _on_player_disconnect(self, player_id: uuid.UUID) -> None:
+        pass
+
+    async def _on_player_msg(self, player_id: uuid.UUID, msg: Message) -> None:
+        pass
