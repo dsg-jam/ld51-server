@@ -1,0 +1,94 @@
+[
+  {
+    "actions": [
+      {
+        "player_id": "00000000-0000-0000-0000-000000000000",
+        "piece_id": "453c1bc5-0270-59f5-8f13-bd14917d67d5",
+        "action": "move_up"
+      }
+    ],
+    "outcomes": [
+      {
+        "type": "push",
+        "payload": {
+          "pusher_piece_id": "453c1bc5-0270-59f5-8f13-bd14917d67d5",
+          "victim_piece_ids": [],
+          "direction": "up"
+        }
+      }
+    ]
+  },
+  {
+    "actions": [
+      {
+        "player_id": "00000000-0000-0000-0000-000000000000",
+        "piece_id": "0a0ce906-6f9a-5e55-93cd-2cd1eccc58e3",
+        "action": "move_up"
+      }
+    ],
+    "outcomes": [
+      {
+        "type": "push",
+        "payload": {
+          "pusher_piece_id": "0a0ce906-6f9a-5e55-93cd-2cd1eccc58e3",
+          "victim_piece_ids": [
+            "c64b6814-8543-57dc-81de-a560b1749c99"
+          ],
+          "direction": "up"
+        }
+      }
+    ]
+  },
+  {
+    "actions": [
+      {
+        "player_id": "00000000-0000-0000-0000-000000000000",
+        "piece_id": "317cb2ff-3fcb-5e0f-b25a-52125850e919",
+        "action": "move_right"
+      },
+      {
+        "player_id": "00000000-0000-0000-0000-000000000000",
+        "piece_id": "f8ca590a-8db9-5f55-b1f0-e8207f7adc5b",
+        "action": "move_up"
+      }
+    ],
+    "outcomes": [
+      {
+        "type": "push_conflict",
+        "payload": {
+          "piece_ids": [
+            "317cb2ff-3fcb-5e0f-b25a-52125850e919",
+            "f8ca590a-8db9-5f55-b1f0-e8207f7adc5b"
+          ],
+          "collision_point": {
+            "x": 2,
+            "y": 1
+          }
+        }
+      }
+    ]
+  },
+  {
+    "actions": [
+      {
+        "player_id": "00000000-0000-0000-0000-000000000000",
+        "piece_id": "c17b3c63-dca7-5a78-bb7d-de6faf39a24c",
+        "action": "move_up"
+      }
+    ],
+    "outcomes": [
+      {
+        "type": "push",
+        "payload": {
+          "pusher_piece_id": "c17b3c63-dca7-5a78-bb7d-de6faf39a24c",
+          "victim_piece_ids": [
+            "4d123fd0-3dc0-5d2f-b7d5-682ad04fe3a5",
+            "5f622919-3ad0-57e3-85d1-a835af41d663",
+            "8cc4f4f3-0d5f-59b0-812a-0dabb3b2a699"
+          ],
+          "direction": "up"
+        }
+      }
+    ]
+  }
+]

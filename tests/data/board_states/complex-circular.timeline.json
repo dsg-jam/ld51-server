@@ -1,0 +1,85 @@
+[
+  {
+    "actions": [
+      {
+        "player_id": "00000000-0000-0000-0000-000000000000",
+        "piece_id": "453c1bc5-0270-59f5-8f13-bd14917d67d5",
+        "action": "move_up"
+      },
+      {
+        "player_id": "00000000-0000-0000-0000-000000000000",
+        "piece_id": "4d123fd0-3dc0-5d2f-b7d5-682ad04fe3a5",
+        "action": "move_right"
+      },
+      {
+        "player_id": "00000000-0000-0000-0000-000000000000",
+        "piece_id": "4ec039f1-f50f-59dd-bd30-ba8da17278e2",
+        "action": "move_left"
+      },
+      {
+        "player_id": "00000000-0000-0000-0000-000000000000",
+        "piece_id": "8cc4f4f3-0d5f-59b0-812a-0dabb3b2a699",
+        "action": "move_down"
+      },
+      {
+        "player_id": "00000000-0000-0000-0000-000000000000",
+        "piece_id": "c64b6814-8543-57dc-81de-a560b1749c99",
+        "action": "move_up"
+      }
+    ],
+    "outcomes": [
+      {
+        "type": "push",
+        "payload": {
+          "pusher_piece_id": "453c1bc5-0270-59f5-8f13-bd14917d67d5",
+          "victim_piece_ids": [
+            "28d217cd-0427-5381-8008-e4a4c2a3bf8e",
+            "fcb92ef9-7105-5222-8439-f9edce9276d1",
+            "64adf6b8-d2a7-5358-8866-bea427527fef"
+          ],
+          "direction": "up"
+        }
+      },
+      {
+        "type": "push",
+        "payload": {
+          "pusher_piece_id": "4d123fd0-3dc0-5d2f-b7d5-682ad04fe3a5",
+          "victim_piece_ids": [
+            "374d3ede-01ec-521e-aef4-6013eb2db191"
+          ],
+          "direction": "right"
+        }
+      },
+      {
+        "type": "push",
+        "payload": {
+          "pusher_piece_id": "4ec039f1-f50f-59dd-bd30-ba8da17278e2",
+          "victim_piece_ids": [
+            "24ccc078-c539-5a16-81cf-5e1393c7a127"
+          ],
+          "direction": "left"
+        }
+      },
+      {
+        "type": "push",
+        "payload": {
+          "pusher_piece_id": "8cc4f4f3-0d5f-59b0-812a-0dabb3b2a699",
+          "victim_piece_ids": [
+            "5f622919-3ad0-57e3-85d1-a835af41d663"
+          ],
+          "direction": "down"
+        }
+      },
+      {
+        "type": "push",
+        "payload": {
+          "pusher_piece_id": "c64b6814-8543-57dc-81de-a560b1749c99",
+          "victim_piece_ids": [
+            "ca7a7640-a3f8-5067-bafe-ea5b0bfd2add"
+          ],
+          "direction": "up"
+        }
+      }
+    ]
+  }
+]

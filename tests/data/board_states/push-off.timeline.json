@@ -1,0 +1,23 @@
+[
+  {
+    "actions": [
+      {
+        "player_id": "00000000-0000-0000-0000-000000000000",
+        "piece_id": "8cc4f4f3-0d5f-59b0-812a-0dabb3b2a699",
+        "action": "move_right"
+      }
+    ],
+    "outcomes": [
+      {
+        "type": "push",
+        "payload": {
+          "pusher_piece_id": "8cc4f4f3-0d5f-59b0-812a-0dabb3b2a699",
+          "victim_piece_ids": [
+            "24ccc078-c539-5a16-81cf-5e1393c7a127"
+          ],
+          "direction": "right"
+        }
+      }
+    ]
+  }
+]
