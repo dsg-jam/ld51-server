@@ -15,6 +15,7 @@ from .models import (
     PushOutcome,
     PushOutcomePayload,
     TimelineEvent,
+    TimelineEventAction,
 )
 
 
@@ -152,7 +153,7 @@ class BoardState:
 
     def _perform_player_move_event(
         self,
-        moves_by_piece_id: dict[uuid.UUID, PlayerMove],
+        action_by_piece_id: dict[uuid.UUID, TimelineEventAction],
         remaining_moves_by_piece_id: dict[uuid.UUID, Direction],
     ) -> TimelineEvent:
         event = TimelineEvent(actions=[], outcomes=[])
@@ -189,7 +190,7 @@ class BoardState:
             for piece_id in pushers:
                 del remaining_moves_by_piece_id[piece_id]
                 del complete_push_chains[piece_id]
-            event.actions.extend(moves_by_piece_id[piece_id] for piece_id in pushers)
+            event.actions.extend(action_by_piece_id[piece_id] for piece_id in pushers)
             event.outcomes.append(
                 MoveConflictOutcome.build(
                     MoveConflictOutcomePayload(
@@ -217,7 +218,7 @@ class BoardState:
             for piece_id in pushers:
                 del remaining_moves_by_piece_id[piece_id]
                 del complete_push_chains[piece_id]
-            event.actions.extend(moves_by_piece_id[piece_id] for piece_id in pushers)
+            event.actions.extend(action_by_piece_id[piece_id] for piece_id in pushers)
             event.outcomes.append(
                 PushConflictOutcome.build(
                     PushConflictOutcomePayload(
@@ -230,7 +231,7 @@ class BoardState:
         push_outcomes = []
         for push_chain in complete_push_chains.values():
             pusher_piece_id, *victim_piece_ids = push_chain
-            event.actions.append(moves_by_piece_id[pusher_piece_id])
+            event.actions.append(action_by_piece_id[pusher_piece_id])
             push_outcome = PushOutcomePayload(
                 pusher_piece_id=pusher_piece_id,
                 victim_piece_ids=victim_piece_ids,
@@ -248,7 +249,13 @@ class BoardState:
         # TODO: verify player moves:
         #   - piece must exist and be owned by the player
 
-        moves_by_piece_id = {move.piece_id: move for move in moves}
+        action_by_piece_id: dict[uuid.UUID, TimelineEventAction] = {}
+        for move in moves:
+            # TODO: switch to moves: TimelineEventAction and use a separate validation function to convert playermove to it
+            piece = self.get_piece_by_id(move.piece_id)
+            action_by_piece_id[move.piece_id] = TimelineEventAction(
+                player_id=piece.player_id, piece_id=move.piece_id, action=move.action
+            )
 
         remaining_moves_by_piece_id: dict[uuid.UUID, Direction] = {}
         # populate remaining moves
@@ -261,7 +268,7 @@ class BoardState:
         events = []
         while remaining_moves_by_piece_id:
             event = self._perform_player_move_event(
-                moves_by_piece_id, remaining_moves_by_piece_id
+                action_by_piece_id, remaining_moves_by_piece_id
             )
             events.append(event)
         return events

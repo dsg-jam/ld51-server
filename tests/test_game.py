@@ -4,13 +4,17 @@ import uuid
 from pathlib import Path
 
 import pytest
+from pydantic import BaseModel, ValidationError
 
 from ld51_server.board import BoardState, PieceInformation
-from ld51_server.models import PieceAction, PlayerMove, Position
+from ld51_server.models import PieceAction, PlayerMove, Position, TimelineEvent
 
 from . import DATA_DIR
 
 BOARD_STATES_DIR = DATA_DIR / "board_states"
+
+TIMELINE_FILE_SUFFIX = ".timeline.json"
+BOARD_STATE_FILE_SUFFIX = ".txt"
 
 
 @dataclasses.dataclass()
@@ -41,7 +45,7 @@ def case_from_ascii(raw: str) -> Case:
                 max_x = x
             pos = Position(x=x, y=y)
             add_piece = False
-            piece_id = uuid.uuid4()
+            piece_id = uuid.uuid5(player_id, f"{x}:{y}")
             match c:
                 case "x" | " ":
                     continue
@@ -101,19 +105,31 @@ def static_board_state_to_ascii(
 
 
 def pytest_generate_tests(metafunc: pytest.Metafunc):
-    if "board_state_path" not in metafunc.fixturenames:
-        return
-    metafunc.parametrize(
-        "board_state_path", BOARD_STATES_DIR.glob("*.txt"), ids=lambda p: p.stem
-    )
+    if "board_state_path" in metafunc.fixturenames:
+        metafunc.parametrize(
+            "board_state_path",
+            BOARD_STATES_DIR.glob(f"*{BOARD_STATE_FILE_SUFFIX}"),
+            ids=lambda p: p.stem,
+        )
+    if "timeline_path" in metafunc.fixturenames:
+        metafunc.parametrize(
+            "timeline_path",
+            BOARD_STATES_DIR.glob(f"*{TIMELINE_FILE_SUFFIX}"),
+            ids=lambda p: p.name[: -len(TIMELINE_FILE_SUFFIX)],
+        )
 
 
-def test_board_state(board_state_path: Path):
+def _do_the_thing(board_state_path: Path) -> tuple[Case, str]:
     content = board_state_path.read_text("utf-8")
     before_state, _, expected_after_state = content.strip("\n").partition("\n---\n")
     test_case = case_from_ascii(before_state)
     # shuffle moves because we want the outcome to be independent
     random.shuffle(test_case.player_moves)
+    return test_case, expected_after_state
+
+
+def test_board_state(board_state_path: Path):
+    test_case, expected_after_state = _do_the_thing(board_state_path)
     test_case.board_state.perform_player_moves(test_case.player_moves)
     got_after_state = static_board_state_to_ascii(
         test_case.board_state, test_case.width, test_case.height
@@ -122,3 +138,30 @@ def test_board_state(board_state_path: Path):
         pytest.fail(
             f"expected state:\n{expected_after_state}\ngot state:\n{got_after_state}",
         )
+
+
+class Timeline(BaseModel):
+    __root__: list[TimelineEvent]
+
+
+def _normalize_events(events: list[TimelineEvent]) -> None:
+    for event in events:
+        event.actions.sort(key=lambda a: a.piece_id)
+        event.outcomes.sort(key=lambda e: e.json())
+
+
+def test_timeline(timeline_path: Path):
+    board_state_path = timeline_path.with_name(
+        timeline_path.name[: -len(TIMELINE_FILE_SUFFIX)] + BOARD_STATE_FILE_SUFFIX
+    )
+    test_case, _ = _do_the_thing(board_state_path)
+    events = test_case.board_state.perform_player_moves(test_case.player_moves)
+    _normalize_events(events)
+    try:
+        timeline = Timeline.parse_file(timeline_path)
+        if timeline.__root__ == events:
+            return
+    except ValidationError:
+        pass
+    timeline_path.write_text(Timeline.parse_obj(events).json(indent=2))
+    pytest.fail("updated expected")
