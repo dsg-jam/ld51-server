@@ -1,3 +1,4 @@
+import abc
 import dataclasses
 import uuid
 
@@ -33,10 +34,52 @@ class PieceInformation:
         return cls(player_id=piece.player_id, piece_id=piece.piece_id)
 
 
+class PlayerMovesExhaustedError(Exception):
+    ...
+
+
+class BoardPlatformABC(abc.ABC):
+    @abc.abstractmethod
+    def is_position_on_board(self, pos: Position) -> bool:
+        ...
+
+
+class InfiniteBoardPlatform(BoardPlatformABC):
+    def is_position_on_board(self, pos: Position) -> bool:
+        return True
+
+
+@dataclasses.dataclass()
+class SimpleRectangleBoardPlatform(BoardPlatformABC):
+    top_left: Position
+    bottom_right: Position
+
+    @property
+    def min_x(self) -> int:
+        return self.top_left.x
+
+    @property
+    def min_y(self) -> int:
+        return self.top_left.y
+
+    @property
+    def max_x(self) -> int:
+        return self.bottom_right.x
+
+    @property
+    def max_y(self) -> int:
+        return self.bottom_right.y
+
+    def is_position_on_board(self, pos: Position) -> bool:
+        return self.min_x <= pos.x <= self.max_x and self.min_y <= pos.y <= self.max_y
+
+
 class BoardState:
+    _platform: SimpleRectangleBoardPlatform
     _piece_by_position: dict[Position, PieceInformation]
 
     def __init__(self) -> None:
+        self._platform = InfiniteBoardPlatform()
         self._piece_by_position = {}
 
     def get_piece_by_id(self, piece_id: uuid.UUID) -> PlayerPiecePosition | None:
@@ -45,23 +88,11 @@ class BoardState:
                 return PlayerPiecePosition(**dataclasses.asdict(info), position=pos)
         return None
 
-    def has_piece_at_position(self, pos: Position) -> bool:
-        return pos in self._piece_by_position
-
     def get_piece_at_position(self, pos: Position) -> PlayerPiecePosition | None:
         info = self._piece_by_position.get(pos)
         if info is None:
             return None
         return PlayerPiecePosition(**dataclasses.asdict(info), position=pos)
-
-    def set_piece_position(self, piece_id: uuid.UUID, new_pos: Position) -> None:
-        assert new_pos not in self._piece_by_position
-        info = self.get_piece_by_id(piece_id)
-
-        del self._piece_by_position[info.position]
-        self._piece_by_position[new_pos] = PieceInformation.from_player_piece_position(
-            info
-        )
 
     def _execute_push_outcomes(self, pushes: list[PushOutcomePayload]) -> None:
         if not pushes:
@@ -76,14 +107,14 @@ class BoardState:
                 old_pos = info.position
                 new_pos = old_pos.offset_in_direction(push_outcome.direction)
                 assert new_pos not in temp_piece_by_positions
-                temp_piece_by_positions[new_pos] = self._piece_by_position.pop(old_pos)
+                piece = self._piece_by_position.pop(old_pos)
+                if self._platform.is_position_on_board(new_pos):
+                    # only keep the piece around if the new pos is still on the board
+                    temp_piece_by_positions[new_pos] = piece
+
         for new_pos in temp_piece_by_positions.keys():
             assert new_pos not in self._piece_by_position
         self._piece_by_position.update(temp_piece_by_positions)
-
-    def is_position_on_board(self, pos: Position) -> bool:
-        #  TODO
-        return True
 
     def _isolate_complete_push_chains(
         self,
@@ -222,6 +253,9 @@ class BoardState:
             remaining_moves_by_piece_id, complete_push_chains
         )
 
+        if not complete_push_chains:
+            raise PlayerMovesExhaustedError()
+
         if collision_outcomes := self._find_push_conflicts(
             complete_push_chains, remaining_moves_by_piece_id, victim_chain_length
         ):
@@ -299,10 +333,14 @@ class BoardState:
                 continue
             remaining_moves_by_piece_id[move.piece_id] = move_dir
 
-        events = []
+        events: list[TimelineEvent] = []
         while remaining_moves_by_piece_id:
-            event = self._perform_player_move_event(
-                action_by_piece_id, remaining_moves_by_piece_id
-            )
+            try:
+                event = self._perform_player_move_event(
+                    action_by_piece_id, remaining_moves_by_piece_id
+                )
+            except PlayerMovesExhaustedError:
+                break
             events.append(event)
+
         return events
