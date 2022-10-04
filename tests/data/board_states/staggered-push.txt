@@ -4,8 +4,8 @@
  ooo  
 >^^^^ 
 ---
- o    
- o    
+  o   
+ oo   
  ooo  
  oooo 
-o o   
+ o    

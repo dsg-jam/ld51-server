@@ -54,13 +54,24 @@
     ],
     "outcomes": [
       {
-        "type": "push_conflict",
+        "type": "push",
         "payload": {
-          "piece_ids": [
-            "317cb2ff-3fcb-5e0f-b25a-52125850e919",
-            "f8ca590a-8db9-5f55-b1f0-e8207f7adc5b"
+          "pusher_piece_id": "317cb2ff-3fcb-5e0f-b25a-52125850e919",
+          "victim_piece_ids": [
+            "c17b3c63-dca7-5a78-bb7d-de6faf39a24c"
           ],
-          "collision_point": null
+          "direction": "right"
+        }
+      },
+      {
+        "type": "push",
+        "payload": {
+          "pusher_piece_id": "f8ca590a-8db9-5f55-b1f0-e8207f7adc5b",
+          "victim_piece_ids": [
+            "374d3ede-01ec-521e-aef4-6013eb2db191",
+            "d6bcda58-eaf5-5111-986b-36189ab57944"
+          ],
+          "direction": "up"
         }
       }
     ]
@@ -79,9 +90,9 @@
         "payload": {
           "pusher_piece_id": "c17b3c63-dca7-5a78-bb7d-de6faf39a24c",
           "victim_piece_ids": [
-            "4d123fd0-3dc0-5d2f-b7d5-682ad04fe3a5",
-            "5f622919-3ad0-57e3-85d1-a835af41d663",
-            "8cc4f4f3-0d5f-59b0-812a-0dabb3b2a699"
+            "f8ca590a-8db9-5f55-b1f0-e8207f7adc5b",
+            "374d3ede-01ec-521e-aef4-6013eb2db191",
+            "d6bcda58-eaf5-5111-986b-36189ab57944"
           ],
           "direction": "up"
         }

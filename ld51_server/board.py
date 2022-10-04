@@ -1,8 +1,6 @@
 import dataclasses
 import uuid
 
-import networkx
-
 from .models import (
     Direction,
     MoveConflictOutcome,
@@ -17,10 +15,6 @@ from .models import (
     TimelineEvent,
     TimelineEventAction,
 )
-
-
-class IllegalMoveException(Exception):
-    ...
 
 
 @dataclasses.dataclass()
@@ -69,7 +63,7 @@ class BoardState:
             info
         )
 
-    def _execute_push_chains(self, pushes: list[PushOutcomePayload]) -> None:
+    def _execute_push_outcomes(self, pushes: list[PushOutcomePayload]) -> None:
         if not pushes:
             return
 
@@ -95,11 +89,12 @@ class BoardState:
         self,
         remaining_moves_by_piece_id: dict[uuid.UUID, Direction],
         complete_push_chains: dict[uuid.UUID, list[uuid.UUID]],
-    ) -> None:
-        chain_length = 0
+    ) -> int:
         incomple_push_chains: dict[uuid.UUID, list[uuid.UUID]] = {}
 
+        victim_chain_length = -1
         while remaining_moves_by_piece_id:
+            victim_chain_length += 1
             finished = False
             for pusher_piece_id, push_dir in remaining_moves_by_piece_id.copy().items():
                 pusher_piece = self.get_piece_by_id(pusher_piece_id)
@@ -114,7 +109,7 @@ class BoardState:
                         pusher_piece_id
                     ]
                 victim_pos = pusher_piece.position.offset_in_direction(
-                    push_dir, steps=chain_length + 1
+                    push_dir, steps=victim_chain_length + 1
                 )
                 victim_piece = self.get_piece_at_position(victim_pos)
                 if victim_piece is not None:
@@ -125,31 +120,96 @@ class BoardState:
                 finished = True
 
             if finished:
-                return
-            chain_length += 1
+                break
+        return victim_chain_length
 
-    def _remove_cycles(
-        self, complete_push_chains: dict[uuid.UUID, list[uuid.UUID]]
-    ) -> None:
-        graph = networkx.DiGraph()
+    def _find_push_conflicts(
+        self,
+        complete_push_chains: dict[uuid.UUID, list[uuid.UUID]],
+        remaining_moves_by_piece_id: dict[uuid.UUID, Direction],
+        victim_chain_length: int,
+    ) -> list[PushConflictOutcomePayload]:
+        if victim_chain_length == 0:
+            return []
+
+        global_min_distance: int | None = None
+
+        def update_global_min_distance(other: int) -> None:
+            nonlocal global_min_distance
+            if global_min_distance is None or other < global_min_distance:
+                global_min_distance = other
+
+        head_on_collisions: dict[frozenset[uuid.UUID, uuid.UUID], int] = {}
+        victim_to_pushers: dict[uuid.UUID, tuple[int, list[uuid.UUID]]] = {}
         for push_chain in complete_push_chains.values():
-            pusher_a_piece_id, *victim_piece_ids = push_chain
-            for pusher_b_piece_id in victim_piece_ids:
-                if pusher_b_piece_id not in complete_push_chains:
-                    # this isn't a pusher
-                    continue
-                graph.add_edge(pusher_a_piece_id, pusher_b_piece_id)
+            pusher_piece_id, *victim_piece_ids = push_chain
+            for i, piece_id in enumerate(victim_piece_ids, 1):
+                if piece_id in complete_push_chains:
+                    del push_chain[i:]
+                    collision_key = frozenset((pusher_piece_id, piece_id))
+                    if collision_key in head_on_collisions:
+                        # head-on collision already handled
+                        break
+                    pusher_a_dir = remaining_moves_by_piece_id[pusher_piece_id]
+                    pusher_b_dir = remaining_moves_by_piece_id[piece_id]
+                    if pusher_a_dir != pusher_b_dir.get_opposite():
+                        # not a head-on collision
+                        break
+                    min_distance = victim_chain_length // 2
+                    head_on_collisions[collision_key] = min_distance
+                    update_global_min_distance(min_distance)
+                    break
 
-        for cycle_pieces in networkx.simple_cycles(graph):
-            if len(cycle_pieces) <= 2:
+                try:
+                    min_distance, pushers = victim_to_pushers[piece_id]
+                except KeyError:
+                    min_distance = None
+
+                if min_distance is None or i < min_distance:
+                    min_distance = i
+                    pushers = [pusher_piece_id]
+                elif i == min_distance:
+                    pushers.append(pusher_piece_id)
+
+                victim_to_pushers[piece_id] = (min_distance, pushers)
+                if len(pushers) >= 2:
+                    update_global_min_distance(min_distance)
+
+        outcomes: list[PushConflictOutcomePayload] = []
+        if global_min_distance is None:
+            return outcomes
+
+        for (
+            pusher_a_piece_id,
+            pusher_b_piece_id,
+        ), distance in head_on_collisions.items():
+            if distance != global_min_distance:
                 continue
+            outcomes.append(
+                PushConflictOutcomePayload(
+                    piece_ids=[pusher_a_piece_id, pusher_b_piece_id],
+                    # TODO: determine
+                    collision_point=None,
+                )
+            )
+        if outcomes:
+            # we have head-on collisions that need to be handled first
+            return outcomes
 
-            pusher_a_piece_id = cycle_pieces[-1]
-            for pusher_b_piece_id in cycle_pieces:
-                push_chain = complete_push_chains[pusher_a_piece_id]
-                b_in_chain_index = push_chain.index(pusher_b_piece_id)
-                del push_chain[b_in_chain_index:]
-                pusher_a_piece_id = pusher_b_piece_id
+        for distance, pushers in victim_to_pushers.values():
+            if distance != global_min_distance:
+                continue
+            if len(pushers) < 2:
+                continue
+            outcomes.append(
+                PushConflictOutcomePayload(
+                    piece_ids=pushers,
+                    # TODO: determine
+                    collision_point=None,
+                )
+            )
+
+        return outcomes
 
     def _perform_player_move_event(
         self,
@@ -158,13 +218,21 @@ class BoardState:
     ) -> TimelineEvent:
         event = TimelineEvent(actions=[], outcomes=[])
         complete_push_chains: dict[uuid.UUID, list[uuid.UUID]] = {}
-        self._isolate_complete_push_chains(
+        victim_chain_length = self._isolate_complete_push_chains(
             remaining_moves_by_piece_id, complete_push_chains
         )
-        self._remove_cycles(complete_push_chains)
+
+        if collision_outcomes := self._find_push_conflicts(
+            complete_push_chains, remaining_moves_by_piece_id, victim_chain_length
+        ):
+            for outcome in collision_outcomes:
+                for piece_id in outcome.piece_ids:
+                    event.actions.append(action_by_piece_id[piece_id])
+                    del remaining_moves_by_piece_id[piece_id]
+                event.outcomes.append(PushConflictOutcome.build(outcome))
+            return event
 
         target_pos_to_pushers: dict[Position, list[uuid.UUID]] = {}
-        victim_to_pushers: dict[uuid.UUID, list[uuid.UUID]] = {}
         for pusher_piece_id, push_chain in complete_push_chains.items():
             pusher_piece = self.get_piece_by_id(pusher_piece_id)
             push_dir = remaining_moves_by_piece_id[pusher_piece_id]
@@ -175,12 +243,6 @@ class BoardState:
                 target_pos_to_pushers[target_pos].append(pusher_piece_id)
             except KeyError:
                 target_pos_to_pushers[target_pos] = [pusher_piece_id]
-
-            for piece_id in push_chain:
-                try:
-                    victim_to_pushers[piece_id].append(pusher_piece_id)
-                except KeyError:
-                    victim_to_pushers[piece_id] = [pusher_piece_id]
 
         for target_pos, pushers in target_pos_to_pushers.items():
             if len(pushers) < 2:
@@ -200,35 +262,6 @@ class BoardState:
                 )
             )
 
-        handled_push_collisions: set[uuid.UUID] = set()
-        for pushers in victim_to_pushers.values():
-            if len(pushers) < 2:
-                continue
-
-            unhandled_collisions: set[uuid.UUID] = (
-                set(pushers) - handled_push_collisions
-            )
-            if not unhandled_collisions:
-                continue
-
-            handled_push_collisions.update(unhandled_collisions)
-
-            # multiple pieces are trying to push the same piece
-
-            for piece_id in pushers:
-                del remaining_moves_by_piece_id[piece_id]
-                del complete_push_chains[piece_id]
-            event.actions.extend(action_by_piece_id[piece_id] for piece_id in pushers)
-            event.outcomes.append(
-                PushConflictOutcome.build(
-                    PushConflictOutcomePayload(
-                        piece_ids=pushers,
-                        # TODO: determine
-                        collision_point=None,
-                    )
-                )
-            )
-
         push_outcomes = []
         for push_chain in complete_push_chains.values():
             pusher_piece_id, *victim_piece_ids = push_chain
@@ -242,7 +275,7 @@ class BoardState:
             event.outcomes.append(PushOutcome.build(push_outcome))
             del remaining_moves_by_piece_id[pusher_piece_id]
 
-        self._execute_push_chains(push_outcomes)
+        self._execute_push_outcomes(push_outcomes)
 
         return event
 

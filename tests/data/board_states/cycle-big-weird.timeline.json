@@ -1,0 +1,236 @@
+[
+  {
+    "actions": [
+      {
+        "player_id": "00000000-0000-0000-0000-000000000000",
+        "piece_id": "5f622919-3ad0-57e3-85d1-a835af41d663",
+        "action": "move_up"
+      },
+      {
+        "player_id": "00000000-0000-0000-0000-000000000000",
+        "piece_id": "64adf6b8-d2a7-5358-8866-bea427527fef",
+        "action": "move_right"
+      },
+      {
+        "player_id": "00000000-0000-0000-0000-000000000000",
+        "piece_id": "bbf22eeb-766b-59d0-8837-563055200332",
+        "action": "move_left"
+      },
+      {
+        "player_id": "00000000-0000-0000-0000-000000000000",
+        "piece_id": "c8ce1ffb-c24b-5be5-a3b9-6a8bc532ce3d",
+        "action": "move_down"
+      }
+    ],
+    "outcomes": [
+      {
+        "type": "push",
+        "payload": {
+          "pusher_piece_id": "5f622919-3ad0-57e3-85d1-a835af41d663",
+          "victim_piece_ids": [
+            "8cc4f4f3-0d5f-59b0-812a-0dabb3b2a699"
+          ],
+          "direction": "up"
+        }
+      },
+      {
+        "type": "push",
+        "payload": {
+          "pusher_piece_id": "64adf6b8-d2a7-5358-8866-bea427527fef",
+          "victim_piece_ids": [
+            "3e0a26d8-ab54-5bf6-ada3-2bec22755cd8"
+          ],
+          "direction": "right"
+        }
+      },
+      {
+        "type": "push",
+        "payload": {
+          "pusher_piece_id": "bbf22eeb-766b-59d0-8837-563055200332",
+          "victim_piece_ids": [
+            "05fb987d-26e8-5160-b8e2-8b87d45b04d9"
+          ],
+          "direction": "left"
+        }
+      },
+      {
+        "type": "push",
+        "payload": {
+          "pusher_piece_id": "c8ce1ffb-c24b-5be5-a3b9-6a8bc532ce3d",
+          "victim_piece_ids": [
+            "eaf1bd8d-690a-5ff9-a4b1-1dd34041ac82"
+          ],
+          "direction": "down"
+        }
+      }
+    ]
+  },
+  {
+    "actions": [
+      {
+        "player_id": "00000000-0000-0000-0000-000000000000",
+        "piece_id": "05fb987d-26e8-5160-b8e2-8b87d45b04d9",
+        "action": "move_up"
+      },
+      {
+        "player_id": "00000000-0000-0000-0000-000000000000",
+        "piece_id": "3e0a26d8-ab54-5bf6-ada3-2bec22755cd8",
+        "action": "move_down"
+      },
+      {
+        "player_id": "00000000-0000-0000-0000-000000000000",
+        "piece_id": "4d123fd0-3dc0-5d2f-b7d5-682ad04fe3a5",
+        "action": "move_up"
+      },
+      {
+        "player_id": "00000000-0000-0000-0000-000000000000",
+        "piece_id": "4ec039f1-f50f-59dd-bd30-ba8da17278e2",
+        "action": "move_right"
+      },
+      {
+        "player_id": "00000000-0000-0000-0000-000000000000",
+        "piece_id": "8cc4f4f3-0d5f-59b0-812a-0dabb3b2a699",
+        "action": "move_right"
+      },
+      {
+        "player_id": "00000000-0000-0000-0000-000000000000",
+        "piece_id": "c812059c-215b-5f2e-a0e0-d502110cd4d8",
+        "action": "move_left"
+      },
+      {
+        "player_id": "00000000-0000-0000-0000-000000000000",
+        "piece_id": "c8fb06ba-b2c2-50d8-93b8-d4b1514c196e",
+        "action": "move_down"
+      },
+      {
+        "player_id": "00000000-0000-0000-0000-000000000000",
+        "piece_id": "eaf1bd8d-690a-5ff9-a4b1-1dd34041ac82",
+        "action": "move_left"
+      }
+    ],
+    "outcomes": [
+      {
+        "type": "push",
+        "payload": {
+          "pusher_piece_id": "05fb987d-26e8-5160-b8e2-8b87d45b04d9",
+          "victim_piece_ids": [],
+          "direction": "up"
+        }
+      },
+      {
+        "type": "push",
+        "payload": {
+          "pusher_piece_id": "3e0a26d8-ab54-5bf6-ada3-2bec22755cd8",
+          "victim_piece_ids": [],
+          "direction": "down"
+        }
+      },
+      {
+        "type": "push",
+        "payload": {
+          "pusher_piece_id": "4d123fd0-3dc0-5d2f-b7d5-682ad04fe3a5",
+          "victim_piece_ids": [],
+          "direction": "up"
+        }
+      },
+      {
+        "type": "push",
+        "payload": {
+          "pusher_piece_id": "4ec039f1-f50f-59dd-bd30-ba8da17278e2",
+          "victim_piece_ids": [],
+          "direction": "right"
+        }
+      },
+      {
+        "type": "push",
+        "payload": {
+          "pusher_piece_id": "8cc4f4f3-0d5f-59b0-812a-0dabb3b2a699",
+          "victim_piece_ids": [],
+          "direction": "right"
+        }
+      },
+      {
+        "type": "push",
+        "payload": {
+          "pusher_piece_id": "c812059c-215b-5f2e-a0e0-d502110cd4d8",
+          "victim_piece_ids": [],
+          "direction": "left"
+        }
+      },
+      {
+        "type": "push",
+        "payload": {
+          "pusher_piece_id": "c8fb06ba-b2c2-50d8-93b8-d4b1514c196e",
+          "victim_piece_ids": [],
+          "direction": "down"
+        }
+      },
+      {
+        "type": "push",
+        "payload": {
+          "pusher_piece_id": "eaf1bd8d-690a-5ff9-a4b1-1dd34041ac82",
+          "victim_piece_ids": [],
+          "direction": "left"
+        }
+      }
+    ]
+  },
+  {
+    "actions": [
+      {
+        "player_id": "00000000-0000-0000-0000-000000000000",
+        "piece_id": "24ccc078-c539-5a16-81cf-5e1393c7a127",
+        "action": "move_right"
+      },
+      {
+        "player_id": "00000000-0000-0000-0000-000000000000",
+        "piece_id": "8e4f261a-c6ff-5067-beb3-cd29b64a6178",
+        "action": "move_down"
+      },
+      {
+        "player_id": "00000000-0000-0000-0000-000000000000",
+        "piece_id": "c17b3c63-dca7-5a78-bb7d-de6faf39a24c",
+        "action": "move_up"
+      },
+      {
+        "player_id": "00000000-0000-0000-0000-000000000000",
+        "piece_id": "db85f362-c184-5549-8232-d7babd92e954",
+        "action": "move_left"
+      }
+    ],
+    "outcomes": [
+      {
+        "type": "push",
+        "payload": {
+          "pusher_piece_id": "24ccc078-c539-5a16-81cf-5e1393c7a127",
+          "victim_piece_ids": [],
+          "direction": "right"
+        }
+      },
+      {
+        "type": "push",
+        "payload": {
+          "pusher_piece_id": "8e4f261a-c6ff-5067-beb3-cd29b64a6178",
+          "victim_piece_ids": [],
+          "direction": "down"
+        }
+      },
+      {
+        "type": "push",
+        "payload": {
+          "pusher_piece_id": "c17b3c63-dca7-5a78-bb7d-de6faf39a24c",
+          "victim_piece_ids": [],
+          "direction": "up"
+        }
+      },
+      {
+        "type": "push",
+        "payload": {
+          "pusher_piece_id": "db85f362-c184-5549-8232-d7babd92e954",
+          "victim_piece_ids": [],
+          "direction": "left"
+        }
+      }
+    ]
+  }
+]
