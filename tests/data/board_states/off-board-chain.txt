@@ -1,0 +1,11 @@
+# the point of this test is to make sure that the ^ push doesn't happen (and doesn't create an outcome) because it is
+# pushed off the board before it is executed.
+  |
+>o|
+>o|
+>^|
+---
+  |
+ o|
+ o|
+ o|

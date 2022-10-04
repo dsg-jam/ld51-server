@@ -1,108 +1,18 @@
-import dataclasses
 import random
-import uuid
 from pathlib import Path
 
 import pytest
 from pydantic import BaseModel, ValidationError
 
-from ld51_server.board import BoardState, PieceInformation
-from ld51_server.models import PieceAction, PlayerMove, Position, TimelineEvent
-from ld51_server.models.timeline import Outcome
+from ld51_server.models import Outcome, TimelineEvent
 
 from . import DATA_DIR
+from .ascii_board import AsciiStateAndMoves
 
 BOARD_STATES_DIR = DATA_DIR / "board_states"
 
 TIMELINE_FILE_SUFFIX = ".timeline.json"
 BOARD_STATE_FILE_SUFFIX = ".txt"
-
-
-@dataclasses.dataclass()
-class Case:
-    width: int
-    height: int
-
-    board_state: BoardState
-    player_moves: list[PlayerMove]
-
-
-def case_from_ascii(raw: str) -> Case:
-    board_state = BoardState()
-    player_moves: list[PlayerMove] = []
-
-    player_id = uuid.UUID("00000000-0000-0000-0000-000000000000")
-
-    max_x = None
-    y = -1
-    for line in raw.splitlines():
-        if not line or line.startswith("#"):
-            continue
-        y += 1
-        x = -1
-        for c in line:
-            x += 1
-            if max_x is None or x > max_x:
-                max_x = x
-            pos = Position(x=x, y=y)
-            add_piece = False
-            piece_id = uuid.uuid5(player_id, f"{x}:{y}")
-            match c:
-                case "x" | " ":
-                    continue
-                case "o":
-                    add_piece = True
-                case "^":
-                    add_piece = True
-                    player_moves.append(
-                        PlayerMove(piece_id=piece_id, action=PieceAction.MOVE_UP)
-                    )
-                case "v":
-                    add_piece = True
-                    player_moves.append(
-                        PlayerMove(piece_id=piece_id, action=PieceAction.MOVE_DOWN)
-                    )
-                case "<":
-                    add_piece = True
-                    player_moves.append(
-                        PlayerMove(piece_id=piece_id, action=PieceAction.MOVE_LEFT)
-                    )
-                case ">":
-                    add_piece = True
-                    player_moves.append(
-                        PlayerMove(piece_id=piece_id, action=PieceAction.MOVE_RIGHT)
-                    )
-                case "_":
-                    raise NotImplementedError
-
-            if add_piece:
-                board_state._piece_by_position[pos] = PieceInformation(
-                    player_id=player_id, piece_id=piece_id
-                )
-
-    width = 0 if max_x is None else max_x + 1
-    return Case(
-        width=width,
-        height=y + 1,
-        board_state=board_state,
-        player_moves=player_moves,
-    )
-
-
-def static_board_state_to_ascii(
-    board_state: BoardState, width: int, height: int
-) -> str:
-    lines = []
-    for y in range(height):
-        line = ""
-        for x in range(width):
-            piece = board_state.get_piece_at_position(Position(x=x, y=y))
-            if piece is None:
-                line += " "
-            else:
-                line += "o"
-        lines.append(line)
-    return "\n".join(lines)
 
 
 def pytest_generate_tests(metafunc: pytest.Metafunc):
@@ -120,24 +30,37 @@ def pytest_generate_tests(metafunc: pytest.Metafunc):
         )
 
 
-def _do_the_thing(board_state_path: Path) -> tuple[Case, str]:
-    content = board_state_path.read_text("utf-8")
-    before_state, _, expected_after_state = content.strip("\n").partition("\n---\n")
-    test_case = case_from_ascii(before_state)
-    # shuffle moves because we want the outcome to be independent
-    random.shuffle(test_case.player_moves)
-    return test_case, expected_after_state
+def _load_before_after(
+    board_state_path: Path,
+) -> tuple[AsciiStateAndMoves, AsciiStateAndMoves]:
+    raw_file_content = board_state_path.read_text("utf-8")
+    raw_before_state, _, raw_after_state = raw_file_content.strip("\n").partition(
+        "\n---\n"
+    )
+    before_state = AsciiStateAndMoves.parse(raw_before_state)
+    after_state = AsciiStateAndMoves.parse(raw_after_state)
+    return before_state, after_state
 
 
 def test_board_state(board_state_path: Path):
-    test_case, expected_after_state = _do_the_thing(board_state_path)
-    test_case.board_state.perform_player_moves(test_case.player_moves)
-    got_after_state = static_board_state_to_ascii(
-        test_case.board_state, test_case.width, test_case.height
+    board_before, expected_board_after = _load_before_after(board_state_path)
+
+    state_and_moves = board_before.to_board_state_and_moves()
+    random.shuffle(state_and_moves.player_moves)
+    state_and_moves.board_state.perform_player_moves(state_and_moves.player_moves)
+
+    got_board_after = AsciiStateAndMoves.from_board_state(
+        state_and_moves.board_state,
+        width=expected_board_after.width,
+        height=expected_board_after.height,
     )
-    if got_after_state != expected_after_state:
+
+    ascii_expected_after = expected_board_after.render()
+    ascii_got_after = got_board_after.render()
+
+    if ascii_expected_after != ascii_got_after:
         pytest.fail(
-            f"expected state:\n{expected_after_state}\ngot state:\n{got_after_state}",
+            f"got a different state than expected\nexpected state:\n{ascii_expected_after}\ngot state:\n{ascii_got_after}",
         )
 
 
@@ -162,17 +85,25 @@ def _normalize_events(events: list[TimelineEvent]) -> None:
 
 
 def test_timeline(timeline_path: Path):
-    board_state_path = timeline_path.with_name(
+    board_state_filename = (
         timeline_path.name[: -len(TIMELINE_FILE_SUFFIX)] + BOARD_STATE_FILE_SUFFIX
     )
-    test_case, _ = _do_the_thing(board_state_path)
-    events = test_case.board_state.perform_player_moves(test_case.player_moves)
+    board_state_path = timeline_path.with_name(board_state_filename)
+    board_before, _ = _load_before_after(board_state_path)
+
+    state_and_moves = board_before.to_board_state_and_moves()
+    random.shuffle(state_and_moves.player_moves)
+    events = state_and_moves.board_state.perform_player_moves(
+        state_and_moves.player_moves
+    )
     _normalize_events(events)
+
     try:
         timeline = Timeline.parse_file(timeline_path)
         if timeline.__root__ == events:
             return
     except ValidationError:
         pass
+
     timeline_path.write_text(Timeline.parse_obj(events).json(indent=2))
     pytest.fail("updated expected")

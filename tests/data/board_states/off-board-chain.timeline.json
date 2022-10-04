@@ -1,0 +1,53 @@
+[
+  {
+    "actions": [
+      {
+        "player_id": "00000000-0000-0000-0000-000000000000",
+        "piece_id": "600b2d98-69c2-5900-a18a-3c08a18da07c",
+        "action": "move_right"
+      },
+      {
+        "player_id": "00000000-0000-0000-0000-000000000000",
+        "piece_id": "73486b0c-bb17-528b-bc01-d7f7dcbb767f",
+        "action": "move_right"
+      },
+      {
+        "player_id": "00000000-0000-0000-0000-000000000000",
+        "piece_id": "897264db-5a3f-5538-938d-062a7897f4e4",
+        "action": "move_right"
+      }
+    ],
+    "outcomes": [
+      {
+        "type": "push",
+        "payload": {
+          "pusher_piece_id": "600b2d98-69c2-5900-a18a-3c08a18da07c",
+          "victim_piece_ids": [
+            "5f622919-3ad0-57e3-85d1-a835af41d663"
+          ],
+          "direction": "right"
+        }
+      },
+      {
+        "type": "push",
+        "payload": {
+          "pusher_piece_id": "73486b0c-bb17-528b-bc01-d7f7dcbb767f",
+          "victim_piece_ids": [
+            "4d123fd0-3dc0-5d2f-b7d5-682ad04fe3a5"
+          ],
+          "direction": "right"
+        }
+      },
+      {
+        "type": "push",
+        "payload": {
+          "pusher_piece_id": "897264db-5a3f-5538-938d-062a7897f4e4",
+          "victim_piece_ids": [
+            "8cc4f4f3-0d5f-59b0-812a-0dabb3b2a699"
+          ],
+          "direction": "right"
+        }
+      }
+    ]
+  }
+]
