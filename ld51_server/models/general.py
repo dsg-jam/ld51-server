@@ -54,9 +54,11 @@ class Position(BaseModel):
     class Config:
         frozen = True
 
-    def offset_in_direction(self, dir: Direction, *, steps: int = 1) -> "Position":
+    def offset_in_direction(
+        self, direction: Direction, *, steps: int = 1
+    ) -> "Position":
         x, y = self.x, self.y
-        match dir:
+        match direction:
             case Direction.UP:
                 y -= steps
             case Direction.DOWN:

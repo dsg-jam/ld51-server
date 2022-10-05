@@ -1,4 +1,4 @@
-from ld51_server.models import Message
+from ld51_server.protocol import Message
 
 
 def print_message_schema():
