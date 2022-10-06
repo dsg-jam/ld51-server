@@ -75,7 +75,7 @@ class SimpleRectangleBoardPlatform(BoardPlatformABC):
 
 
 class BoardState:
-    _platform: SimpleRectangleBoardPlatform
+    _platform: BoardPlatformABC
     _piece_by_position: dict[Position, PieceInformation]
 
     def __init__(self) -> None:
@@ -98,7 +98,7 @@ class BoardState:
         if not pushes:
             return
 
-        temp_piece_by_positions = {}
+        temp_piece_by_positions: dict[Position, PieceInformation] = {}
         for push_outcome in pushes:
             piece_ids = (push_outcome.pusher_piece_id, *push_outcome.victim_piece_ids)
             for piece_id in piece_ids:
@@ -170,7 +170,7 @@ class BoardState:
             if global_min_distance is None or other < global_min_distance:
                 global_min_distance = other
 
-        head_on_collisions: dict[frozenset[uuid.UUID, uuid.UUID], int] = {}
+        head_on_collisions: dict[frozenset[uuid.UUID], int] = {}
         victim_to_pushers: dict[uuid.UUID, tuple[int, list[uuid.UUID]]] = {}
         for push_chain in complete_push_chains.values():
             pusher_piece_id, *victim_piece_ids = push_chain
@@ -195,6 +195,7 @@ class BoardState:
                     min_distance, pushers = victim_to_pushers[piece_id]
                 except KeyError:
                     min_distance = None
+                    pushers = []  # will be overwritten anyway
 
                 if min_distance is None or i < min_distance:
                     min_distance = i
@@ -269,6 +270,7 @@ class BoardState:
         target_pos_to_pushers: dict[Position, list[uuid.UUID]] = {}
         for pusher_piece_id, push_chain in complete_push_chains.items():
             pusher_piece = self.get_piece_by_id(pusher_piece_id)
+            assert pusher_piece is not None
             push_dir = remaining_moves_by_piece_id[pusher_piece_id]
             target_pos = pusher_piece.position.offset_in_direction(
                 push_dir, steps=len(push_chain)
@@ -296,7 +298,7 @@ class BoardState:
                 )
             )
 
-        push_outcomes = []
+        push_outcomes: list[PushOutcomePayload] = []
         for push_chain in complete_push_chains.values():
             pusher_piece_id, *victim_piece_ids = push_chain
             event.actions.append(action_by_piece_id[pusher_piece_id])
@@ -321,6 +323,7 @@ class BoardState:
         for move in moves:
             # TODO: switch to moves: TimelineEventAction and use a separate validation function to convert playermove to it
             piece = self.get_piece_by_id(move.piece_id)
+            assert piece is not None
             action_by_piece_id[move.piece_id] = TimelineEventAction(
                 player_id=piece.player_id, piece_id=move.piece_id, action=move.action
             )

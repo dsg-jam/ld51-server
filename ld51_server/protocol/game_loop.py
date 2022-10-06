@@ -1,9 +1,10 @@
 from typing import Literal, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from ..models.general import GameOver, PlayerMove, PlayerPiecePosition
 from ..models.timeline import TimelineEvent
+from .base import BaseMessage
 
 
 class RoundStartPayload(BaseModel):
@@ -12,9 +13,8 @@ class RoundStartPayload(BaseModel):
     board_state: list[PlayerPiecePosition]
 
 
-class RoundStartMessage(BaseModel):
-    type: Literal["round_start"] = "round_start"
-    payload: RoundStartPayload
+class RoundStartMessage(BaseMessage[Literal["round_start"], RoundStartPayload]):
+    ...
 
 
 class RoundResultPayload(BaseModel):
@@ -22,27 +22,26 @@ class RoundResultPayload(BaseModel):
     game_over: GameOver | None
 
 
-class RoundResultMessage(BaseModel):
-    type: Literal["round_result"] = "round_result"
-    payload: RoundResultPayload
+class RoundResultMessage(BaseMessage[Literal["round_result"], RoundResultPayload]):
+    ...
 
 
 class PlayerMovesPayload(BaseModel):
     moves: list[PlayerMove]
 
 
-class PlayerMovesMessage(BaseModel):
-    type: Literal["player_moves"] = "player_moves"
-    payload: PlayerMovesPayload
+class PlayerMovesMessage(BaseMessage[Literal["player_moves"], PlayerMovesPayload]):
+    ...
 
 
 class ReadyForNextRoundPayload(BaseModel):
     ...
 
 
-class ReadyForNextRoundMessage(BaseModel):
-    type: Literal["ready_for_next_round"] = "ready_for_next_round"
-    payload: ReadyForNextRoundPayload = Field(default_factory=ReadyForNextRoundPayload)
+class ReadyForNextRoundMessage(
+    BaseMessage[Literal["ready_for_next_round"], ReadyForNextRoundPayload]
+):
+    ...
 
 
 GameLoopMessageT = Union[

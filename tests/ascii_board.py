@@ -58,7 +58,7 @@ class AsciiStateAndMoves:
             if raw_line.startswith(C_COMMENT):
                 continue
             state.height += 1
-            row = []
+            row: list[BoardCell] = []
             for raw_char in raw_line:
                 if raw_char == C_END_OF_LINE:
                     break

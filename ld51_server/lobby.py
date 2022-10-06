@@ -2,6 +2,7 @@ import asyncio
 import logging
 import uuid
 from datetime import datetime
+from typing import Any
 
 from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.encoders import jsonable_encoder
@@ -9,6 +10,7 @@ from pydantic import ValidationError
 
 from .board import BoardState
 from .protocol import (
+    BaseMessage,
     Message,
     PlayerJoinedMessage,
     PlayerJoinedPayload,
@@ -27,7 +29,7 @@ _WS_CLOSE_PROTOCOL_ERROR = 1002
 class Player:
     _id: uuid.UUID
     _ws: WebSocket
-    _poll_task: asyncio.Task | None
+    _poll_task: asyncio.Task[None] | None
 
     def __init__(self, ws: WebSocket) -> None:
         self._id = uuid.uuid4()
@@ -38,19 +40,19 @@ class Player:
     def player_id(self) -> uuid.UUID:
         return self._id
 
-    def set_poll_task(self, poll_task: asyncio.Task | None) -> None:
+    def set_poll_task(self, poll_task: asyncio.Task[None] | None) -> None:
         if existing_poll_task := self._poll_task:
             existing_poll_task.cancel()
 
         self._poll_task = poll_task
 
-    async def send_msg(self, msg: Message) -> None:
+    async def send_msg(self, msg: BaseMessage[Any, Any]) -> None:
         """
         Raises `WebSocketDisconnect`.
         """
         await self._ws.send_json(jsonable_encoder(msg), mode=_WS_MODE)
 
-    async def send_msg_silent(self, msg: Message) -> bool:
+    async def send_msg_silent(self, msg: BaseMessage[Any, Any]) -> bool:
         try:
             await self.send_msg(msg)
         except WebSocketDisconnect:
@@ -105,14 +107,14 @@ class Lobby:
 
         player_id = player.player_id
         await player.send_msg_silent(
-            ServerHelloMessage(
-                payload=ServerHelloPayload(
+            ServerHelloMessage.from_payload(
+                ServerHelloPayload(
                     player_id=player_id, is_host=player_id == self._host_player_id
                 )
             )
         )
         await self._broadcast(
-            PlayerJoinedMessage(payload=PlayerJoinedPayload(player_id=player_id)),
+            PlayerJoinedMessage.from_payload(PlayerJoinedPayload(player_id=player_id)),
             exclude_player_ids={player_id},
         )
 
@@ -123,7 +125,7 @@ class Lobby:
             except WebSocketDisconnect:
                 break
             except ValidationError:
-                player.disconnect(
+                await player.disconnect(
                     code=_WS_CLOSE_PROTOCOL_ERROR, reason="invalid message"
                 )
                 break
@@ -133,7 +135,10 @@ class Lobby:
         await self._on_player_disconnect(player)
 
     async def _broadcast(
-        self, msg: Message, *, exclude_player_ids: set[uuid.UUID] | None = None
+        self,
+        msg: BaseMessage[Any, Any],
+        *,
+        exclude_player_ids: set[uuid.UUID] | None = None,
     ) -> None:
         if exclude_player_ids:
             players = [
