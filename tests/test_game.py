@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from pydantic import BaseModel, ValidationError
 
-from ld51_server.models import Outcome, TimelineEvent
+from ld51_server.models import OutcomeT, TimelineEvent
 
 from . import DATA_DIR
 from .ascii_board import AsciiStateAndMoves
@@ -68,7 +68,7 @@ class Timeline(BaseModel):
     __root__: list[TimelineEvent]
 
 
-def _normalize_outcome(outcome: Outcome):
+def _normalize_outcome(outcome: OutcomeT):
     payload = outcome.payload
     try:
         payload.piece_ids.sort()

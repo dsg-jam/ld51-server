@@ -3,24 +3,24 @@ from typing import Literal, Union
 
 from pydantic import BaseModel
 
+from .base import BaseMessage
+
 
 class ServerHelloPayload(BaseModel):
     player_id: uuid.UUID
     is_host: bool
 
 
-class ServerHelloMessage(BaseModel):
-    type: Literal["server_hello"] = "server_hello"
-    payload: ServerHelloPayload
+class ServerHelloMessage(BaseMessage[Literal["server_hello"], ServerHelloPayload]):
+    ...
 
 
 class PlayerJoinedPayload(BaseModel):
     player_id: uuid.UUID
 
 
-class PlayerJoinedMessage(BaseModel):
-    type: Literal["player_joined"] = "player_joined"
-    payload: PlayerJoinedPayload
+class PlayerJoinedMessage(BaseMessage[Literal["player_joined"], PlayerJoinedPayload]):
+    ...
 
 
 LobbyMessageT = Union[ServerHelloMessage, PlayerJoinedMessage]

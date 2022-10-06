@@ -2,6 +2,7 @@ import uuid
 
 from fastapi import FastAPI, HTTPException, WebSocket, status
 
+from . import dev
 from .lobby import Lobby
 from .models import (
     CreateLobbyResponse,
@@ -19,7 +20,7 @@ _LOBBIES_BY_ID: dict[uuid.UUID, Lobby] = {}
 
 @app.get("/lobby", response_model=ListLobbiesResponse)
 async def list_lobbies():
-    lobbies = []
+    lobbies: list[LobbyInfo] = []
     for lobby in _LOBBIES_BY_ID.values():
         lobbies.append(
             LobbyInfo(
@@ -60,3 +61,6 @@ async def ws_join_lobby(lobby_id: uuid.UUID, ws: WebSocket):
         raise HTTPException(status.HTTP_404_NOT_FOUND)
 
     await lobby.join_player(ws)
+
+
+app.include_router(dev.router)
