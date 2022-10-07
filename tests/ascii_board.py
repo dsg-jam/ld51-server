@@ -3,11 +3,8 @@ import enum
 import uuid
 from typing import Iterator
 
-from ld51_server.game.board import (
-    BoardState,
-    PieceInformation,
-    SimpleRectangleBoardPlatform,
-)
+from ld51_server.game.board import Board, PieceInformation
+from ld51_server.game.board_platform import SimpleRectangleBoardPlatform
 from ld51_server.models import PieceAction, PlayerMove, Position
 
 DUMMY_PLAYER_ID = uuid.UUID("00000000-0000-0000-0000-000000000000")
@@ -45,7 +42,7 @@ class BoardCell(str, enum.Enum):
 
 @dataclasses.dataclass()
 class BoardStateAndMoves:
-    board_state: BoardState
+    board_state: Board
     player_moves: list[PlayerMove]
 
 
@@ -76,7 +73,7 @@ class AsciiStateAndMoves:
         return state
 
     @classmethod
-    def from_board_state(cls, board_state: BoardState, width: int, height: int):
+    def from_board_state(cls, board_state: Board, width: int, height: int):
         state = cls(board_grid=[], width=width, height=height)
         state._normalize()
 
@@ -108,7 +105,7 @@ class AsciiStateAndMoves:
         return "\n".join(self._iter_rendered_lines(with_border=with_border))
 
     def to_board_state_and_moves(self) -> BoardStateAndMoves:
-        state = BoardStateAndMoves(board_state=BoardState(), player_moves=[])
+        state = BoardStateAndMoves(board_state=Board(), player_moves=[])
         state.board_state._platform = SimpleRectangleBoardPlatform(
             top_left=Position(x=0, y=0),
             bottom_right=Position(x=self.width - 1, y=self.height - 1),

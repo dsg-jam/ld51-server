@@ -56,6 +56,7 @@ async def ws_join_lobby(lobby_id: uuid.UUID, ws: WebSocket):
     lobby = _LOBBIES_BY_ID.get(lobby_id)
     if lobby is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND)
-
+    if lobby.is_joinable():
+        raise HTTPException(status.HTTP_409_CONFLICT)
     player = await lobby.join_player(ws)
     await player.wait_until_done()

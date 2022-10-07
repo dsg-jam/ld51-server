@@ -1,4 +1,3 @@
-import abc
 import dataclasses
 import uuid
 
@@ -16,6 +15,7 @@ from ..models import (
     TimelineEvent,
     TimelineEventAction,
 )
+from .board_platform import BoardPlatformABC, InfiniteBoardPlatform
 
 
 @dataclasses.dataclass(kw_only=True)
@@ -38,43 +38,7 @@ class PlayerMovesExhaustedError(Exception):
     ...
 
 
-class BoardPlatformABC(abc.ABC):
-    @abc.abstractmethod
-    def is_position_on_board(self, pos: Position) -> bool:
-        ...
-
-
-class InfiniteBoardPlatform(BoardPlatformABC):
-    def is_position_on_board(self, pos: Position) -> bool:
-        return True
-
-
-@dataclasses.dataclass()
-class SimpleRectangleBoardPlatform(BoardPlatformABC):
-    top_left: Position
-    bottom_right: Position
-
-    @property
-    def min_x(self) -> int:
-        return self.top_left.x
-
-    @property
-    def min_y(self) -> int:
-        return self.top_left.y
-
-    @property
-    def max_x(self) -> int:
-        return self.bottom_right.x
-
-    @property
-    def max_y(self) -> int:
-        return self.bottom_right.y
-
-    def is_position_on_board(self, pos: Position) -> bool:
-        return self.min_x <= pos.x <= self.max_x and self.min_y <= pos.y <= self.max_y
-
-
-class BoardState:
+class Board:
     _platform: BoardPlatformABC
     _piece_by_position: dict[Position, PieceInformation]
 
@@ -93,6 +57,13 @@ class BoardState:
         if info is None:
             return None
         return PlayerPiecePosition(**dataclasses.asdict(info), position=pos)
+
+    def get_pieces_model(self) -> list[PlayerPiecePosition]:
+        pieces: list[PlayerPiecePosition] = []
+        for pos, info in self._piece_by_position.items():
+            piece = PlayerPiecePosition(**dataclasses.asdict(info), position=pos)
+            pieces.append(piece)
+        return pieces
 
     def _execute_push_outcomes(self, pushes: list[PushOutcomePayload]) -> None:
         if not pushes:

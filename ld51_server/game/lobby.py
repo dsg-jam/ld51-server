@@ -1,11 +1,11 @@
 import asyncio
+import enum
 import logging
 import uuid
 from datetime import datetime
 from typing import Any
 
 from fastapi import WebSocket, WebSocketDisconnect
-from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
 from ..protocol import (
@@ -18,78 +18,40 @@ from ..protocol import (
     ServerHelloMessage,
     ServerHelloPayload,
 )
-from .board import BoardState
+from .board import Board
+from .player import Player
 
 _LOGGER = logging.getLogger()
 
-_WS_MODE = "text"
 
 _WS_CLOSE_PROTOCOL_ERROR = 1002
 
 
-class Player:
-    _id: uuid.UUID
-    _ws: WebSocket
-    _poll_task: asyncio.Task[None] | None
-
-    def __init__(self, ws: WebSocket) -> None:
-        self._id = uuid.uuid4()
-        self._ws = ws
-        self._poll_task = None
-
-    @property
-    def player_id(self) -> uuid.UUID:
-        return self._id
-
-    async def wait_until_done(self) -> None:
-        if self._poll_task is None:
-            return
-        await self._poll_task
-
-    def set_poll_task(self, poll_task: asyncio.Task[None] | None) -> None:
-        if existing_poll_task := self._poll_task:
-            existing_poll_task.cancel()
-
-        self._poll_task = poll_task
-
-    async def send_msg(self, msg: BaseMessage[Any, Any]) -> None:
-        """
-        Raises `WebSocketDisconnect`.
-        """
-        await self._ws.send_json(jsonable_encoder(msg), mode=_WS_MODE)
-
-    async def send_msg_silent(self, msg: BaseMessage[Any, Any]) -> bool:
-        try:
-            await self.send_msg(msg)
-        except WebSocketDisconnect:
-            return False
-        return True
-
-    async def receive_msg(self) -> Message:
-        """
-        Raises `WebSocketDisconnect` or `ValidationError`.
-        """
-        raw_msg = await self._ws.receive_json(mode=_WS_MODE)
-        return Message.parse_obj(raw_msg)
-
-    async def disconnect(self, code: int, reason: str | None = None) -> None:
-        await self._ws.close(code=code, reason=reason)
-        self.set_poll_task(None)
+class LobbyState(enum.IntEnum):
+    EMPTY = enum.auto()
+    LOBBY = enum.auto()
+    IN_GAME = enum.auto()
 
 
 class Lobby:
     _id: uuid.UUID
+    _state: LobbyState
     _created_at: datetime
     _host_player_id: uuid.UUID | None
     _player_by_id: dict[uuid.UUID, Player]
-    _board_state: BoardState | None
+
+    _board_state: Board | None
+    _round_number: int
 
     def __init__(self) -> None:
         self._id = uuid.uuid4()
+        self._state = LobbyState.EMPTY
         self._created_at = datetime.now()
         self._host_player_id = None
         self._player_by_id = {}
+
         self._board_state = None
+        self._round_number = 0
 
     @property
     def lobby_id(self) -> uuid.UUID:
@@ -99,10 +61,15 @@ class Lobby:
         return len(self._player_by_id)
 
     def is_joinable(self) -> bool:
-        # TODO
-        return self._board_state is None
+        match self._state:
+            case LobbyState.EMPTY | LobbyState.LOBBY:
+                return True
+            case _:
+                return False
 
     async def join_player(self, ws: WebSocket) -> Player:
+        assert self.is_joinable
+
         await ws.accept()
         player = Player(ws)
         if self._host_player_id is None:
@@ -185,6 +152,21 @@ class Lobby:
         # TODO
         pass
 
+    async def _do_one_round(self) -> None:
+        assert self._board_state is not None
+        self._round_number += 1
+        round_duration = 10
+
+        await self._broadcast(
+            RoundStartMessage.from_payload(
+                RoundStartPayload(
+                    round_number=self._round_number,
+                    round_duration=round_duration,
+                    board_state=self._board_state.get_pieces_model(),
+                )
+            )
+        )
+
     async def _round(self) -> None:
         # TODO
         round_duration = 10
@@ -195,3 +177,5 @@ class Lobby:
                 )
             )
         )
+
+        await asyncio.sleep()
