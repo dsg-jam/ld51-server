@@ -8,16 +8,17 @@ from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
-from .board import BoardState
-from .protocol import (
+from ..protocol import (
     BaseMessage,
     Message,
     PlayerJoinedMessage,
     PlayerJoinedPayload,
     RoundStartMessage,
+    RoundStartPayload,
     ServerHelloMessage,
     ServerHelloPayload,
 )
+from .board import BoardState
 
 _LOGGER = logging.getLogger()
 
@@ -39,6 +40,11 @@ class Player:
     @property
     def player_id(self) -> uuid.UUID:
         return self._id
+
+    async def wait_until_done(self) -> None:
+        if self._poll_task is None:
+            return
+        await self._poll_task
 
     def set_poll_task(self, poll_task: asyncio.Task[None] | None) -> None:
         if existing_poll_task := self._poll_task:
@@ -96,14 +102,19 @@ class Lobby:
         # TODO
         return self._board_state is None
 
-    async def join_player(self, ws: WebSocket) -> None:
+    async def join_player(self, ws: WebSocket) -> Player:
         await ws.accept()
         player = Player(ws)
         if self._host_player_id is None:
             self._host_player_id = player.player_id
 
         self._player_by_id[player.player_id] = player
-        player.set_poll_task(asyncio.create_task(self.__player_poll_loop(player)))
+        player.set_poll_task(
+            asyncio.create_task(
+                self.__player_poll_loop(player),
+                name=f"poll task for player {player.player_id}",
+            )
+        )
 
         player_id = player.player_id
         await player.send_msg_silent(
@@ -117,8 +128,7 @@ class Lobby:
             PlayerJoinedMessage.from_payload(PlayerJoinedPayload(player_id=player_id)),
             exclude_player_ids={player_id},
         )
-
-        await player._poll_task
+        return player
 
     async def __player_poll_loop(self, player: Player) -> None:
         while True:
@@ -126,7 +136,10 @@ class Lobby:
                 msg = await player.receive_msg()
             except WebSocketDisconnect:
                 break
-            except ValidationError:
+            except ValidationError as exc:
+                _LOGGER.warning(
+                    "player %s sent an invalid message: %s", player.player_id, exc
+                )
                 await player.disconnect(
                     code=_WS_CLOSE_PROTOCOL_ERROR, reason="invalid message"
                 )
@@ -175,4 +188,10 @@ class Lobby:
     async def _round(self) -> None:
         # TODO
         round_duration = 10
-        await self._broadcast(RoundStartMessage())
+        await self._broadcast(
+            RoundStartMessage.from_payload(
+                RoundStartPayload(
+                    round_number=1, round_duration=round_duration, board_state=[]
+                )
+            )
+        )

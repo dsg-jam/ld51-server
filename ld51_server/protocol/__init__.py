@@ -4,6 +4,7 @@ from typing import Any, Type, Union
 from pydantic import BaseModel, Field
 
 from .base import BaseMessage
+from .error import *
 from .game_loop import *
 from .lobby import *
 
