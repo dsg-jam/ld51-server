@@ -47,7 +47,9 @@ def test_board_state(board_state_path: Path):
 
     state_and_moves = board_before.to_board_state_and_moves()
     random.shuffle(state_and_moves.player_moves)
-    state_and_moves.board_state.perform_player_moves(state_and_moves.player_moves)
+    state_and_moves.board_state.perform_player_moves(
+        state_and_moves.get_validated_moves()
+    )
 
     got_board_after = AsciiStateAndMoves.from_board_state(
         state_and_moves.board_state,
@@ -94,7 +96,7 @@ def test_timeline(timeline_path: Path):
     state_and_moves = board_before.to_board_state_and_moves()
     random.shuffle(state_and_moves.player_moves)
     events = state_and_moves.board_state.perform_player_moves(
-        state_and_moves.player_moves
+        state_and_moves.get_validated_moves()
     )
     _normalize_events(events)
 

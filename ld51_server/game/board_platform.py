@@ -2,7 +2,7 @@ import abc
 import dataclasses
 
 from ..models import BoardPlatform as BoardPlatformModel
-from ..models import Position
+from ..models import BoardPlatformTile, Position
 
 
 class BoardPlatformABC(abc.ABC):
@@ -49,3 +49,21 @@ class SimpleRectangleBoardPlatform(BoardPlatformABC):
 
     def to_model(self) -> BoardPlatformModel:
         raise NotImplementedError
+
+
+class ClientDefinedPlatform(BoardPlatformABC):
+    _tile_by_pos: dict[Position, BoardPlatformTile]
+
+    def __init__(self, model: BoardPlatformModel) -> None:
+        self._tile_by_pos = {tile.position: tile for tile in model.tiles}
+
+    def is_position_on_board(self, pos: Position) -> bool:
+        try:
+            tile = self._tile_by_pos[pos]
+        except KeyError:
+            return False
+
+        return tile.tile_type.is_off_board()
+
+    def to_model(self) -> BoardPlatformModel:
+        return BoardPlatformModel(tiles=list(self._tile_by_pos.values()))

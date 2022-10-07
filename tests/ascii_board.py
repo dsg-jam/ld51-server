@@ -5,7 +5,7 @@ from typing import Iterator
 
 from ld51_server.game.board import Board, PieceInformation
 from ld51_server.game.board_platform import SimpleRectangleBoardPlatform
-from ld51_server.models import PieceAction, PlayerMove, Position
+from ld51_server.models import PieceAction, PlayerMove, Position, TimelineEventAction
 
 DUMMY_PLAYER_ID = uuid.UUID("00000000-0000-0000-0000-000000000000")
 
@@ -44,6 +44,11 @@ class BoardCell(str, enum.Enum):
 class BoardStateAndMoves:
     board_state: Board
     player_moves: list[PlayerMove]
+
+    def get_validated_moves(self) -> list[TimelineEventAction]:
+        return self.board_state.validate_player_moves(
+            DUMMY_PLAYER_ID, self.player_moves
+        )
 
 
 @dataclasses.dataclass()
@@ -105,10 +110,14 @@ class AsciiStateAndMoves:
         return "\n".join(self._iter_rendered_lines(with_border=with_border))
 
     def to_board_state_and_moves(self) -> BoardStateAndMoves:
-        state = BoardStateAndMoves(board_state=Board(), player_moves=[])
-        state.board_state._platform = SimpleRectangleBoardPlatform(
-            top_left=Position(x=0, y=0),
-            bottom_right=Position(x=self.width - 1, y=self.height - 1),
+        state = BoardStateAndMoves(
+            board_state=Board(
+                platform=SimpleRectangleBoardPlatform(
+                    top_left=Position(x=0, y=0),
+                    bottom_right=Position(x=self.width - 1, y=self.height - 1),
+                )
+            ),
+            player_moves=[],
         )
         for y, row in enumerate(self.board_grid):
             for x, cell in enumerate(row):

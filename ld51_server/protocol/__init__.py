@@ -8,8 +8,8 @@ from .error import *
 from .game_loop import *
 from .lobby import *
 
-MessageT = Union[GameLoopMessageT, LobbyMessageT]
-MessagePayloadT = Union[GameLoopMessagePayloadT, LobbyMessagePayloadT]
+MessageT = Union[ErrorMessage, GameLoopMessageT, LobbyMessageT]
+MessagePayloadT = Union[ErrorPayload, GameLoopMessagePayloadT, LobbyMessagePayloadT]
 
 
 class Message(BaseModel):

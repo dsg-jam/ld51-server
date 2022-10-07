@@ -36,6 +36,7 @@ class HostStartGameMessage(
 
 class ServerStartGamePayload(BaseModel):
     platform: BoardPlatform
+    # TODO this doesn't actually need to be here because the round start message will also contain the piece positions
     pieces: list[PlayerPiecePosition]
 
 
