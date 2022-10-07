@@ -1,15 +1,21 @@
-from typing import Type, TypeVar
+from typing import Any, Type, TypeVar
 
 import pytest
+from fastapi.encoders import jsonable_encoder
 from fastapi.testclient import TestClient
 from starlette.testclient import WebSocketTestSession
 
 from ld51_server import app
+from ld51_server.models import BoardPlatform
 from ld51_server.protocol import (
+    BaseMessage,
+    HostStartGameMessage,
+    HostStartGamePayload,
     Message,
     MessagePayloadT,
     PlayerJoinedPayload,
     ServerHelloPayload,
+    ServerStartGamePayload,
 )
 
 
@@ -27,6 +33,10 @@ def _rx_msg_payload(ws: WebSocketTestSession) -> MessagePayloadT:
     raw = ws.receive_json()
     msg = Message.parse_obj(raw)
     return msg.payload
+
+
+def _tx_msg(ws: WebSocketTestSession, msg: BaseMessage[Any, Any]) -> None:
+    ws.send_json(jsonable_encoder(msg))
 
 
 _MT = TypeVar("_MT", bound=MessagePayloadT)
@@ -67,3 +77,24 @@ def test_join_two_players():
             # the host should receive a join message for the other player
             data = _rx_msg_payload_type(ws1, PlayerJoinedPayload)
             assert data.player_id == other_player_id
+
+
+@pytest.mark.timeout(5)
+def test_game_start():
+    client = TestClient(app)
+    lobby_id = _create_lobby(client)
+
+    with _lobby_connect_ws(client, lobby_id) as ws1:
+        data = _rx_msg_payload_type(ws1, ServerHelloPayload)
+        assert data.is_host is True
+
+        platform = BoardPlatform(tiles=[])
+        _tx_msg(
+            ws1,
+            HostStartGameMessage.from_payload(HostStartGamePayload(platform=platform)),
+        )
+
+        data = _rx_msg_payload_type(ws1, ServerStartGamePayload)
+        assert data.platform == platform
+
+        # TODO: send moves

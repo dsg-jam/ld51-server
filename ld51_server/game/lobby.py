@@ -154,6 +154,7 @@ class Lobby:
         player = Player(ws)
         if self._host_player_id is None:
             self._host_player_id = player.player_id
+            self._state = LobbyState.LOBBY
 
         self._player_by_id[player.player_id] = player
         player.set_poll_task(
