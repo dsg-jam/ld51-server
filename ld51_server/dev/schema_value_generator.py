@@ -18,13 +18,13 @@ class SchemaValueGenerator:
         return uuid.UUID(bytes=self._rng.randbytes(16), version=4)
 
     def _ex_string(self, schema: dict[str, Any]) -> str:
-        match schema.get("format"):
-            case "uuid":
+        match schema:
+            case {"format": "uuid"}:
                 return str(self._random_uuid())
-            case None:
-                return "string"
+            case {"format": _}:
+                return "string with unknown format"
             case _:
-                return "unknown string format"
+                return "string"
 
     def _ex_boolean(self, schema: dict[str, Any]) -> bool:
         return self._random_bool()
@@ -65,18 +65,16 @@ class SchemaValueGenerator:
         schema = definitions[name]
         return self._ex_schema(schema)
 
-    def _ex_one_of(self, choices: list[dict[str, Any]]) -> Any:
-        choice = self._rng.choice(choices)
-        return self._ex_schema(choice)
-
     def _ex_schema(self, schema: dict[str, Any]) -> Any:
         match schema:
+            case {"examples": examples}:
+                return self._rng.choice(examples)
             case {"$ref": ref}:
                 return self._ex_ref(ref)
             case {"enum": enum_values}:
                 return self._rng.choice(enum_values)
             case {"oneOf": choices}:
-                return self._ex_one_of(choices)
+                return self._ex_schema(self._rng.choice(choices))
             case {"type": "string"}:
                 return self._ex_string(schema)
             case {"type": "boolean"}:
