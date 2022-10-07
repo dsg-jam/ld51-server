@@ -2,8 +2,7 @@ from typing import Literal, Union
 
 from pydantic import BaseModel
 
-from ..models.general import GameOver, PlayerMove, PlayerPiecePosition
-from ..models.timeline import TimelineEvent
+from ..models import GameOver, PlayerMove, PlayerPiecePosition, TimelineEvent
 from .base import BaseMessage
 
 

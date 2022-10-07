@@ -28,11 +28,11 @@ sequenceDiagram
     deactivate server
     note right of p1: All other players are informed that a new player just joined
 
-    p1->>server: game_start { ... }
+    p1->>server: host_start_game { ... }
     activate server
     note left of server: Only the host can start the game
-    server->>p2: tbd { ... }
-    server->>p1: tbd { ... }
+    server->>p2: server_start_game { ... }
+    server->>p1: server_start_game { ... }
     deactivate server
 ```
 
