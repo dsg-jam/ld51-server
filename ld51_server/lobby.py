@@ -118,6 +118,8 @@ class Lobby:
             exclude_player_ids={player_id},
         )
 
+        await player._poll_task
+
     async def __player_poll_loop(self, player: Player) -> None:
         while True:
             try:
