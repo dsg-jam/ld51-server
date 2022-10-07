@@ -2,7 +2,7 @@ import abc
 import dataclasses
 import uuid
 
-from .models import (
+from ..models import (
     Direction,
     MoveConflictOutcome,
     MoveConflictOutcomePayload,
@@ -18,13 +18,7 @@ from .models import (
 )
 
 
-@dataclasses.dataclass()
-class PlayerMoveByPlayer:
-    player_id: uuid.UUID
-    move: PlayerMove
-
-
-@dataclasses.dataclass()
+@dataclasses.dataclass(kw_only=True)
 class PieceInformation:
     player_id: uuid.UUID
     piece_id: uuid.UUID
@@ -32,6 +26,12 @@ class PieceInformation:
     @classmethod
     def from_player_piece_position(cls, piece: PlayerPiecePosition):
         return cls(player_id=piece.player_id, piece_id=piece.piece_id)
+
+
+@dataclasses.dataclass(kw_only=True)
+class IllegalPlayerMoveError(Exception):
+    piece_id: uuid.UUID
+    message: str | None = None
 
 
 class PlayerMovesExhaustedError(Exception):
@@ -314,6 +314,32 @@ class BoardState:
         self._execute_push_outcomes(push_outcomes)
 
         return event
+
+    def verify_player_moves(
+        self, player_id: uuid.UUID, planned_moves: list[PlayerMove]
+    ) -> list[TimelineEventAction]:
+        event_actions: list[TimelineEventAction] = []
+        for move in planned_moves:
+            piece = self.get_piece_by_id(move.piece_id)
+            if piece is None:
+                raise IllegalPlayerMoveError(
+                    piece_id=move.piece_id, message="piece not found"
+                )
+
+            if piece.player_id != player_id:
+                raise IllegalPlayerMoveError(
+                    piece_id=move.piece_id, message="piece not owned by this player"
+                )
+
+            event_actions.append(
+                TimelineEventAction(
+                    player_id=piece.player_id,
+                    piece_id=move.piece_id,
+                    action=move.action,
+                )
+            )
+
+        return event_actions
 
     def perform_player_moves(self, moves: list[PlayerMove]) -> list[TimelineEvent]:
         # TODO: verify player moves:
