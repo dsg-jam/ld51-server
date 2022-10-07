@@ -4,13 +4,13 @@ from typing import Generic, TypeVar
 from pydantic import BaseModel
 from pydantic.generics import GenericModel
 
-_TYPE_T = TypeVar("_TYPE_T")
-_PAYLOAD_T = TypeVar("_PAYLOAD_T", bound=BaseModel)
+_TypeT = TypeVar("_TypeT")
+_PayloadT = TypeVar("_PayloadT", bound=BaseModel)
 
 
-class BaseMessage(GenericModel, Generic[_TYPE_T, _PAYLOAD_T]):
-    type: _TYPE_T
-    payload: _PAYLOAD_T
+class BaseMessage(GenericModel, Generic[_TypeT, _PayloadT]):
+    type: _TypeT
+    payload: _PayloadT
 
     @classmethod
     def get_type_value(cls) -> str:
@@ -19,5 +19,5 @@ class BaseMessage(GenericModel, Generic[_TYPE_T, _PAYLOAD_T]):
         return lit_value
 
     @classmethod
-    def from_payload(cls, payload: _PAYLOAD_T):
+    def from_payload(cls, payload: _PayloadT):
         return cls(type=cls.get_type_value(), payload=payload)

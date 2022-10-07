@@ -112,7 +112,7 @@ class BoardState:
                     # only keep the piece around if the new pos is still on the board
                     temp_piece_by_positions[new_pos] = piece
 
-        for new_pos in temp_piece_by_positions.keys():
+        for new_pos in temp_piece_by_positions:
             assert new_pos not in self._piece_by_position
         self._piece_by_position.update(temp_piece_by_positions)
 
@@ -174,9 +174,9 @@ class BoardState:
         victim_to_pushers: dict[uuid.UUID, tuple[int, list[uuid.UUID]]] = {}
         for push_chain in complete_push_chains.values():
             pusher_piece_id, *victim_piece_ids = push_chain
-            for i, piece_id in enumerate(victim_piece_ids, 1):
+            for chain_idx, piece_id in enumerate(victim_piece_ids, 1):
                 if piece_id in complete_push_chains:
-                    del push_chain[i:]
+                    del push_chain[chain_idx:]
                     collision_key = frozenset((pusher_piece_id, piece_id))
                     if collision_key in head_on_collisions:
                         # head-on collision already handled
@@ -197,10 +197,10 @@ class BoardState:
                     min_distance = None
                     pushers = []  # will be overwritten anyway
 
-                if min_distance is None or i < min_distance:
-                    min_distance = i
+                if min_distance is None or chain_idx < min_distance:
+                    min_distance = chain_idx
                     pushers = [pusher_piece_id]
-                elif i == min_distance:
+                elif chain_idx == min_distance:
                     pushers.append(pusher_piece_id)
 
                 victim_to_pushers[piece_id] = (min_distance, pushers)
