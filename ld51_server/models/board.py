@@ -9,6 +9,9 @@ class BoardPlatformTileType(str, enum.Enum):
     VOID = "void"
     FLOOR = "floor"
 
+    def is_off_board(self) -> bool:
+        return self == self.VOID
+
 
 class BoardPlatformTile(BaseModel):
     position: Position

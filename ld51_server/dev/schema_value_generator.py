@@ -29,11 +29,11 @@ class SchemaValueGenerator:
     def _ex_boolean(self, schema: dict[str, Any]) -> bool:
         return self._random_bool()
 
-    def _ex_integer(self, schema: dict[str, Any]) -> int:
+    def _ex_integer(self) -> int:
         return self._rng.randrange(-500, 500)
 
-    def _ex_number(self, schema: dict[str, Any]) -> float:
-        return self._ex_integer(schema) / 100.0
+    def _ex_number(self) -> float:
+        return self._ex_integer() / 100.0
 
     def _ex_object(self, schema: dict[str, Any]) -> dict[str, Any]:
         example_obj: dict[str, Any] = {}
@@ -80,9 +80,9 @@ class SchemaValueGenerator:
             case {"type": "boolean"}:
                 return self._ex_boolean(schema)
             case {"type": "integer"}:
-                return self._ex_integer(schema)
+                return self._ex_integer()
             case {"type": "number"}:
-                return self._ex_number(schema)
+                return self._ex_number()
             case {"type": "object"}:
                 return self._ex_object(schema)
             case {"type": "array"}:

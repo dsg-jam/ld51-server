@@ -1,4 +1,5 @@
 import dataclasses
+import itertools
 import uuid
 
 from ..models import (
@@ -15,7 +16,7 @@ from ..models import (
     TimelineEvent,
     TimelineEventAction,
 )
-from .board_platform import BoardPlatformABC, InfiniteBoardPlatform
+from .board_platform import BoardPlatformABC
 
 
 @dataclasses.dataclass(kw_only=True)
@@ -42,8 +43,8 @@ class Board:
     _platform: BoardPlatformABC
     _piece_by_position: dict[Position, PieceInformation]
 
-    def __init__(self) -> None:
-        self._platform = InfiniteBoardPlatform()
+    def __init__(self, *, platform: BoardPlatformABC) -> None:
+        self._platform = platform
         self._piece_by_position = {}
 
     def get_piece_by_id(self, piece_id: uuid.UUID) -> PlayerPiecePosition | None:
@@ -286,7 +287,7 @@ class Board:
 
         return event
 
-    def verify_player_moves(
+    def validate_player_moves(
         self, player_id: uuid.UUID, planned_moves: list[PlayerMove]
     ) -> list[TimelineEventAction]:
         event_actions: list[TimelineEventAction] = []
@@ -312,22 +313,16 @@ class Board:
 
         return event_actions
 
-    def perform_player_moves(self, moves: list[PlayerMove]) -> list[TimelineEvent]:
-        # TODO: verify player moves:
-        #   - piece must exist and be owned by the player
-
-        action_by_piece_id: dict[uuid.UUID, TimelineEventAction] = {}
-        for move in moves:
-            # TODO: switch to moves: TimelineEventAction and use a separate validation function to convert playermove to it
-            piece = self.get_piece_by_id(move.piece_id)
-            assert piece is not None
-            action_by_piece_id[move.piece_id] = TimelineEventAction(
-                player_id=piece.player_id, piece_id=move.piece_id, action=move.action
-            )
+    def perform_player_moves(
+        self, validated_moves: list[TimelineEventAction]
+    ) -> list[TimelineEvent]:
+        action_by_piece_id: dict[uuid.UUID, TimelineEventAction] = {
+            move.piece_id: move for move in validated_moves
+        }
 
         remaining_moves_by_piece_id: dict[uuid.UUID, Direction] = {}
         # populate remaining moves
-        for move in moves:
+        for move in validated_moves:
             move_dir = move.action.as_direction()
             if move_dir is None:
                 continue
@@ -343,4 +338,19 @@ class Board:
                 break
             events.append(event)
 
+        return events
+
+    def perform_all_player_moves(
+        self, validated_moves_by_player: dict[uuid.UUID, list[TimelineEventAction]]
+    ) -> list[TimelineEvent]:
+        events: list[TimelineEvent] = []
+        for move_by_player in itertools.zip_longest(
+            *validated_moves_by_player.values()
+        ):
+            # take the nth move for every player...
+            moves: list[TimelineEventAction] = [
+                move for move in move_by_player if move is not None
+            ]
+            # ... and run them in parallel
+            events.extend(self.perform_player_moves(moves))
         return events

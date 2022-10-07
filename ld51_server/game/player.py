@@ -30,7 +30,10 @@ class Player:
     async def wait_until_done(self) -> None:
         if self._poll_task is None:
             return
-        await self._poll_task
+        try:
+            await self._poll_task
+        except asyncio.CancelledError:
+            pass
 
     def set_poll_task(self, poll_task: asyncio.Task[None] | None) -> None:
         if existing_poll_task := self._poll_task:
@@ -60,4 +63,3 @@ class Player:
 
     async def disconnect(self, code: int, reason: str | None = None) -> None:
         await self._ws.close(code=code, reason=reason)
-        self.set_poll_task(None)
