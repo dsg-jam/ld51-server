@@ -1,6 +1,7 @@
 import dataclasses
 import itertools
 import uuid
+from random import Random
 
 from ..models import (
     Direction,
@@ -361,10 +362,40 @@ class Board:
 
     def get_game_over_model(self) -> GameOver | None:
         player_ids = self._get_remaining_player_ids()
-        match player_ids:
-            case [winner_player_id]:
-                return GameOver(winner_player_id=winner_player_id)
-            case []:
+        match len(player_ids):
+            case 0:
                 return GameOver(winner_player_id=None)
+            case 1:
+                (winner_player_id,) = player_ids
+                return GameOver(winner_player_id=winner_player_id)
             case _:
                 return None
+
+    def _create_new_piece(self, player_id: uuid.UUID, pos: Position) -> None:
+        assert pos not in self._piece_by_position
+        self._piece_by_position[pos] = PieceInformation(
+            player_id=player_id, piece_id=uuid.uuid4()
+        )
+
+    def place_pieces(
+        self, rng: Random, player_ids: list[uuid.UUID], pieces_per_player: int
+    ) -> None:
+        available_positions = self._platform.on_board_positions()
+        if available_positions is not None and player_ids:
+            max_possible_pieces_per_player = available_positions // len(player_ids)
+            pieces_per_player = min(pieces_per_player, max_possible_pieces_per_player)
+            if not pieces_per_player:
+                # we can't fit all players onto this board
+                player_ids = rng.sample(player_ids, available_positions)
+                pieces_per_player = 1
+
+        # we now know for sure that len(player_ids) * pieces_per_player can fit on the board
+        exclude_pos: set[Position] = set()
+        for player_id in player_ids:
+            for _ in range(pieces_per_player):
+                pos = self._platform.get_random_position_on_board(
+                    rng, exclude=exclude_pos
+                )
+                assert pos
+                exclude_pos.add(pos)
+                self._create_new_piece(player_id, pos)

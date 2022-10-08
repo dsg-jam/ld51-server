@@ -4,7 +4,7 @@ import uuid
 from typing import Iterator
 
 from ld51_server.game.board import Board, PieceInformation
-from ld51_server.game.board_platform import SimpleRectangleBoardPlatform
+from ld51_server.game.board_platform import RectangleBoardPlatform
 from ld51_server.models import PieceAction, PlayerMove, Position, TimelineEventAction
 
 DUMMY_PLAYER_ID = uuid.UUID("00000000-0000-0000-0000-000000000000")
@@ -112,7 +112,7 @@ class AsciiStateAndMoves:
     def to_board_state_and_moves(self) -> BoardStateAndMoves:
         state = BoardStateAndMoves(
             board_state=Board(
-                platform=SimpleRectangleBoardPlatform(
+                platform=RectangleBoardPlatform(
                     top_left=Position(x=0, y=0),
                     bottom_right=Position(x=self.width - 1, y=self.height - 1),
                 )
