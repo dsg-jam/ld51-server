@@ -5,6 +5,7 @@ import logging
 import time
 import uuid
 from datetime import datetime
+from random import Random
 from typing import Any, Generic, Iterable, TypeVar
 
 from fastapi import WebSocket, WebSocketDisconnect
@@ -36,9 +37,10 @@ from .player import Player
 
 _LOGGER = logging.getLogger()
 
-ROUND_DURATION = 10.0
-ROUND_GRACE_PERIOD = ROUND_DURATION / 5.0
-DURATION_PER_EVENT = 5.0
+ROUND_DURATION: float = 10.0
+ROUND_GRACE_PERIOD: float = ROUND_DURATION / 5.0
+DURATION_PER_EVENT: float = 5.0
+PIECES_PER_PLAYER: int = 3
 
 _WS_CLOSE_PROTOCOL_ERROR = 1002
 
@@ -288,9 +290,17 @@ class Lobby:
         if self._state != LobbyState.LOBBY:
             return ErrorPayload.invalid_lobby_state()
 
+        # TODO: perhaps we shouldn't allow the host to start the game if there's only one player...
+
         platform = ClientDefinedPlatform(payload.platform)
+        # TODO validate platform, make sure it makes some sense
         self._state = LobbyState.GAME_ROUND_START
         self._board = Board(platform=platform)
+        rng = Random()
+        self._board.place_pieces(
+            rng, list(self._player_by_id.keys()), PIECES_PER_PLAYER
+        )
+
         await self._broadcast(
             ServerStartGameMessage.from_payload(
                 ServerStartGamePayload(
@@ -299,7 +309,10 @@ class Lobby:
                 )
             )
         )
-        await self._start_round()
+
+        assert self._game_loop_task is None
+        self._game_loop_task = asyncio.create_task(self.__game_loop(), name="game loop")
+
         return None
 
     async def _msg_player_moves(
@@ -333,10 +346,6 @@ class Lobby:
 
         self._player_ready_collector.collect(player.player_id, payload)
 
-    async def _start_round(self) -> None:
-        assert self._game_loop_task is None
-        self._game_loop_task = asyncio.create_task(self.__game_loop(), name="game loop")
-
     async def __run_round(self) -> None:
         assert self._board is not None
 
@@ -356,6 +365,7 @@ class Lobby:
         )
 
         # collect moves by all players
+        # TODO: we only care for players that still have pieces on the board
         collect_result = await self._player_moves_collector.wait_with_grace_period(
             delay=ROUND_DURATION, grace_period=ROUND_GRACE_PERIOD
         )
