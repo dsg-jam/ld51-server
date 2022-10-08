@@ -4,6 +4,7 @@ import uuid
 
 from ..models import (
     Direction,
+    GameOver,
     MoveConflictOutcome,
     MoveConflictOutcomePayload,
     PlayerMove,
@@ -354,3 +355,16 @@ class Board:
             # ... and run them in parallel
             events.extend(self.perform_player_moves(moves))
         return events
+
+    def _get_remaining_player_ids(self) -> set[uuid.UUID]:
+        return {piece.player_id for piece in self._piece_by_position.values()}
+
+    def get_game_over_model(self) -> GameOver | None:
+        player_ids = self._get_remaining_player_ids()
+        match player_ids:
+            case [winner_player_id]:
+                return GameOver(winner_player_id=winner_player_id)
+            case []:
+                return GameOver(winner_player_id=None)
+            case _:
+                return None

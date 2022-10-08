@@ -26,7 +26,9 @@ class SchemaValueGenerator:
             case _:
                 return "string"
 
-    def _ex_boolean(self, schema: dict[str, Any]) -> bool:
+    def _ex_boolean(
+        self,
+    ) -> bool:
         return self._random_bool()
 
     def _ex_integer(self) -> int:
@@ -78,7 +80,7 @@ class SchemaValueGenerator:
             case {"type": "string"}:
                 return self._ex_string(schema)
             case {"type": "boolean"}:
-                return self._ex_boolean(schema)
+                return self._ex_boolean()
             case {"type": "integer"}:
                 return self._ex_integer()
             case {"type": "number"}:
