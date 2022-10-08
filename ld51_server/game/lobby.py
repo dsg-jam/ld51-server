@@ -1,10 +1,11 @@
 import asyncio
+import dataclasses
 import enum
 import logging
 import time
 import uuid
 from datetime import datetime
-from typing import Any, Iterable
+from typing import Any, Generic, Iterable, TypeVar
 
 from fastapi import WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
@@ -19,6 +20,7 @@ from ..protocol import (
     PlayerJoinedMessage,
     PlayerJoinedPayload,
     PlayerMovesPayload,
+    ReadyForNextRoundPayload,
     RoundResultMessage,
     RoundResultPayload,
     RoundStartMessage,
@@ -34,6 +36,9 @@ from .player import Player
 
 _LOGGER = logging.getLogger()
 
+ROUND_DURATION = 10.0
+ROUND_GRACE_PERIOD = ROUND_DURATION / 5.0
+DURATION_PER_EVENT = 5.0
 
 _WS_CLOSE_PROTOCOL_ERROR = 1002
 
@@ -46,33 +51,32 @@ class LobbyState(enum.IntEnum):
     GAME_WAIT_PLAYER_READY = enum.auto()
 
 
-class PlayerMovesCollector:
-    ValidatedMovesByPlayer = dict[uuid.UUID, list[TimelineEventAction]]
+_ItemT = TypeVar("_ItemT")
 
+
+@dataclasses.dataclass()
+class PlayerItemCollectorResult(Generic[_ItemT]):
+    missing_player_ids: set[uuid.UUID]
+    collected: dict[uuid.UUID, _ItemT]
+
+
+class PlayerItemCollector(Generic[_ItemT]):
     _missing_player_ids: set[uuid.UUID]
-    _moves_by_player: ValidatedMovesByPlayer
+    _moves_by_player: dict[uuid.UUID, _ItemT]
     _collected_all_players_ev: asyncio.Event
-    _stop_collecting: bool
 
     def __init__(self, player_ids: Iterable[uuid.UUID]) -> None:
         self._missing_player_ids = set(player_ids)
         self._moves_by_player = {}
         self._collected_all_players_ev = asyncio.Event()
-        self._stop_collecting = False
 
     def _check_done(self) -> None:
         if self._missing_player_ids:
             return
         self._collected_all_players_ev.set()
 
-    def collect(
-        self, player_id: uuid.UUID, validated_moves: list[TimelineEventAction]
-    ) -> None:
-        if self._stop_collecting:
-            # ignore anything that comes in after the event is done
-            return
-
-        self._moves_by_player[player_id] = validated_moves
+    def collect(self, player_id: uuid.UUID, item: _ItemT) -> None:
+        self._moves_by_player[player_id] = item
         self._missing_player_ids.discard(player_id)
         self._check_done()
 
@@ -80,33 +84,45 @@ class PlayerMovesCollector:
         self._missing_player_ids.discard(player_id)
         self._check_done()
 
+    def _snapshot(self) -> PlayerItemCollectorResult[_ItemT]:
+        return PlayerItemCollectorResult(
+            missing_player_ids=self._missing_player_ids.copy(),
+            collected=self._moves_by_player.copy(),
+        )
+
     async def _wait(
-        self, *, early_return_timestamp: float, grace_timeout: float
-    ) -> ValidatedMovesByPlayer:
+        self, *, early_return_timestamp: float | None, grace_timeout: float
+    ) -> PlayerItemCollectorResult[_ItemT]:
         try:
             await asyncio.wait_for(
                 self._collected_all_players_ev.wait(), timeout=grace_timeout
             )
         except asyncio.TimeoutError:
-            return self._moves_by_player
+            return self._snapshot()
 
-        delay = time.time() - early_return_timestamp
+        if early_return_timestamp is None:
+            return self._snapshot()
+
+        delay = early_return_timestamp - time.time()
         if delay > 0.0:
             # make sure we don't return before the expected time
             await asyncio.sleep(delay)
 
-        return self._moves_by_player
+        return self._snapshot()
 
-    async def wait(
-        self, *, timeout: float, grace_period: float
-    ) -> ValidatedMovesByPlayer:
-        try:
-            return await self._wait(
-                early_return_timestamp=time.time() + timeout,
-                grace_timeout=timeout + grace_period,
-            )
-        finally:
-            self._stop_collecting = True
+    async def wait_with_grace_period(
+        self, *, delay: float, grace_period: float
+    ) -> PlayerItemCollectorResult[_ItemT]:
+        return await self._wait(
+            early_return_timestamp=time.time() + delay,
+            grace_timeout=delay + grace_period,
+        )
+
+    async def wait_up_to(self, *, timeout: float) -> PlayerItemCollectorResult[_ItemT]:
+        return await self._wait(
+            early_return_timestamp=None,
+            grace_timeout=timeout,
+        )
 
 
 class Lobby:
@@ -118,8 +134,10 @@ class Lobby:
 
     _board: Board | None
     _round_number: int
+    _game_loop_task: asyncio.Task[None] | None
 
-    _player_moves_collector: PlayerMovesCollector | None
+    _player_moves_collector: PlayerItemCollector[list[TimelineEventAction]] | None
+    _player_ready_collector: PlayerItemCollector[ReadyForNextRoundPayload] | None
 
     def __init__(self) -> None:
         self._id = uuid.uuid4()
@@ -130,8 +148,10 @@ class Lobby:
 
         self._board = None
         self._round_number = 0
+        self._game_loop_task = None
 
         self._player_moves_collector = None
+        self._player_ready_collector = None
 
     @property
     def lobby_id(self) -> uuid.UUID:
@@ -237,6 +257,11 @@ class Lobby:
     async def _on_player_disconnect(self, player: Player) -> None:
         del self._player_by_id[player.player_id]
         player.set_poll_task(None)
+
+        if collector := self._player_moves_collector:
+            collector.remove_player(player.player_id)
+        if collector := self._player_ready_collector:
+            collector.remove_player(player.player_id)
         # TODO handle
 
     async def _on_player_msg(self, player: Player, msg: Message) -> None:
@@ -247,6 +272,8 @@ class Lobby:
                 error = await self._msg_host_start_game(player, msg.payload)
             case PlayerMovesPayload():
                 error = await self._msg_player_moves(player, msg.payload)
+            case ReadyForNextRoundPayload():
+                error = await self._msg_ready_for_next_round(player, msg.payload)
             case _:
                 error = ErrorPayload.unhandled_message()
 
@@ -295,45 +322,75 @@ class Lobby:
 
         self._player_moves_collector.collect(player.player_id, validated_moves)
 
+    async def _msg_ready_for_next_round(
+        self, player: Player, payload: ReadyForNextRoundPayload
+    ) -> ErrorPayload | None:
+        if self._state != LobbyState.GAME_WAIT_PLAYER_READY:
+            return ErrorPayload.invalid_lobby_state()
+
+        assert self._board
+        assert self._player_ready_collector
+
+        self._player_ready_collector.collect(player.player_id, payload)
+
     async def _start_round(self) -> None:
-        asyncio.create_task(self.__run_round(), name="run round")
-        # TODO maybe store this task somewhere?
-        # TODO: wrap in exception catcher
+        assert self._game_loop_task is None
+        self._game_loop_task = asyncio.create_task(self.__game_loop(), name="game loop")
 
     async def __run_round(self) -> None:
         assert self._board is not None
 
         self._round_number += 1
-        round_duration = 10
 
         self._state = LobbyState.GAME_GET_PLAYER_MOVES
-        self._player_moves_collector = PlayerMovesCollector(self._player_by_id.keys())
+        self._player_moves_collector = PlayerItemCollector(self._player_by_id.keys())
+
         await self._broadcast(
             RoundStartMessage.from_payload(
                 RoundStartPayload(
                     round_number=self._round_number,
-                    round_duration=round_duration,
+                    round_duration=ROUND_DURATION,
                     board_state=self._board.get_pieces_model(),
                 )
             )
         )
 
         # collect moves by all players
-        moves_by_player = await self._player_moves_collector.wait(
-            timeout=round_duration, grace_period=round_duration / 2.0
+        collect_result = await self._player_moves_collector.wait_with_grace_period(
+            delay=ROUND_DURATION, grace_period=ROUND_GRACE_PERIOD
         )
+        # TODO: handle players that didn't submit in time. They should be considered disconnected
+        self._player_moves_collector = None
 
         # execute moves
-        timeline = self._board.perform_all_player_moves(moves_by_player)
+        timeline = self._board.perform_all_player_moves(collect_result.collected)
+        estimated_animation_duration = len(timeline) * DURATION_PER_EVENT
 
         self._state = LobbyState.GAME_WAIT_PLAYER_READY
+        self._player_ready_collector = PlayerItemCollector(self._player_by_id.keys())
+
+        # TODO: do something when the game is over
         await self._broadcast(
             RoundResultMessage.from_payload(
                 RoundResultPayload(
                     timeline=timeline,
-                    game_over=None,
+                    game_over=self._board.get_game_over_model(),
                 )
             )
         )
 
-        # TODO wait for all players to be ready_for_next_round
+        collect_result = await self._player_ready_collector.wait_up_to(
+            timeout=estimated_animation_duration
+        )
+        # TODO: take care of players that aren't ready
+        self._player_ready_collector = None
+
+    async def __game_loop(self) -> None:
+        while True:
+            try:
+                await self.__run_round()
+            # pylint: disable-next=broad-except
+            except Exception:
+                _LOGGER.exception(
+                    "encountered exception during round %s", self._round_number
+                )
