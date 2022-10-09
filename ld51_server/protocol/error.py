@@ -45,6 +45,6 @@ class ErrorMessage(BaseMessage[Literal["error"], ErrorPayload]):
 
 
 __all__ = [
-    ErrorPayload.__name__,
-    ErrorMessage.__name__,
+    "ErrorPayload",
+    "ErrorMessage",
 ]
