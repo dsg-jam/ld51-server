@@ -24,7 +24,7 @@ class BoardPlatform(BaseModel):
 
 
 __all__ = [
-    BoardPlatformTileType.__name__,
-    BoardPlatformTile.__name__,
-    BoardPlatform.__name__,
+    "BoardPlatformTileType",
+    "BoardPlatformTile",
+    "BoardPlatform",
 ]

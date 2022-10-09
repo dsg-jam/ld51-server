@@ -21,15 +21,24 @@ pytest-cov = "^4.0.0"
 pytest-timeout = "^2.1.0"
 requests = "^2.28.1"
 uvicorn = "^0.18.3"
+pyright = "^1.1.274"
 
 [tool.poe.tasks]
 run = "uvicorn ld51_server:app --reload"
 test = "pytest"
 test-cov = "pytest --cov=ld51_server"
 lint = "pylint ld51_server/"
-_sort_imports = "isort ."
+type-check = "pyright"
+_sort-imports = "isort ."
+_sort-imports-check = "isort --diff --check ."
 _format = "black ."
-format = ["_sort_imports", "_format"]
+_format-check = "black --check --diff ."
+format = ["_sort-imports", "_format"]
+format-check = ["_sort-imports-check", "_format-check"]
+flow = ["format", "type-check", "test", "lint"]
+
+[tool.isort]
+profile = "black"
 
 [tool.pylint.main]
 load-plugins = ["pylint_pydantic"]
@@ -49,8 +58,8 @@ disable = [
     "too-many-return-statements",
 ]
 
-[tool.isort]
-profile = "black"
+[tool.pyright]
+strict = ["ld51_server/"]
 
 [build-system]
 requires = ["poetry-core"]

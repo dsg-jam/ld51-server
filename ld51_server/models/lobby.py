@@ -22,8 +22,8 @@ class CreateLobbyResponse(BaseModel):
 
 
 __all__ = [
-    LobbyInfo.__name__,
-    ListLobbiesResponse.__name__,
-    GetLobbyInfoResponse.__name__,
-    CreateLobbyResponse.__name__,
+    "LobbyInfo",
+    "ListLobbiesResponse",
+    "GetLobbyInfoResponse",
+    "CreateLobbyResponse",
 ]

@@ -73,7 +73,7 @@ class Timeline(BaseModel):
 def _normalize_outcome(outcome: OutcomeT):
     payload = outcome.payload
     try:
-        payload.piece_ids.sort()
+        payload.piece_ids.sort()  # type: ignore
     except Exception:
         pass
 

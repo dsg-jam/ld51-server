@@ -76,14 +76,14 @@ class TimelineEvent(BaseModel):
 
 
 __all__ = [
-    MoveConflictOutcomePayload.__name__,
-    MoveConflictOutcome.__name__,
-    PushOutcomePayload.__name__,
-    PushOutcome.__name__,
-    PushConflictOutcomePayload.__name__,
-    PushConflictOutcome.__name__,
+    "MoveConflictOutcomePayload",
+    "MoveConflictOutcome",
+    "PushOutcomePayload",
+    "PushOutcome",
+    "PushConflictOutcomePayload",
+    "PushConflictOutcome",
     "OutcomeT",
     "OutcomePayloadT",
-    TimelineEventAction.__name__,
-    TimelineEvent.__name__,
+    "TimelineEventAction",
+    "TimelineEvent",
 ]

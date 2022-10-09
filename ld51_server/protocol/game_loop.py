@@ -58,14 +58,14 @@ GameLoopMessagePayloadT = Union[
 
 
 __all__ = [
-    RoundStartPayload.__name__,
-    RoundStartMessage.__name__,
-    RoundResultPayload.__name__,
-    RoundResultMessage.__name__,
-    PlayerMovesPayload.__name__,
-    PlayerMovesMessage.__name__,
-    ReadyForNextRoundPayload.__name__,
-    ReadyForNextRoundMessage.__name__,
+    "RoundStartPayload",
+    "RoundStartMessage",
+    "RoundResultPayload",
+    "RoundResultMessage",
+    "PlayerMovesPayload",
+    "PlayerMovesMessage",
+    "ReadyForNextRoundPayload",
+    "ReadyForNextRoundMessage",
     "GameLoopMessageT",
     "GameLoopMessagePayloadT",
 ]

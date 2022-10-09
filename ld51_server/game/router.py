@@ -10,6 +10,8 @@ from ..models import (
 )
 from .lobby import Lobby
 
+__all__ = ["router"]
+
 router = APIRouter(prefix="/lobby")
 
 _LOBBIES_BY_ID: dict[uuid.UUID, Lobby] = {}

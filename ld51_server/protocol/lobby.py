@@ -61,14 +61,14 @@ LobbyMessageT = Union[
 ]
 
 __all__ = [
-    ServerHelloPayload.__name__,
-    ServerHelloMessage.__name__,
-    PlayerJoinedPayload.__name__,
-    PlayerJoinedMessage.__name__,
-    HostStartGamePayload.__name__,
-    HostStartGameMessage.__name__,
-    ServerStartGamePayload.__name__,
-    ServerStartGameMessage.__name__,
+    "ServerHelloPayload",
+    "ServerHelloMessage",
+    "PlayerJoinedPayload",
+    "PlayerJoinedMessage",
+    "HostStartGamePayload",
+    "HostStartGameMessage",
+    "ServerStartGamePayload",
+    "ServerStartGameMessage",
     "LobbyMessageT",
     "LobbyMessagePayloadT",
 ]

@@ -88,10 +88,10 @@ class GameOver(BaseModel):
 
 
 __all__ = [
-    Direction.__name__,
-    PieceAction.__name__,
-    Position.__name__,
-    PlayerPiecePosition.__name__,
-    PlayerMove.__name__,
-    GameOver.__name__,
+    "Direction",
+    "PieceAction",
+    "Position",
+    "PlayerPiecePosition",
+    "PlayerMove",
+    "GameOver",
 ]
