@@ -35,7 +35,7 @@ _format = "black ."
 _format-check = "black --check --diff ."
 format = ["_sort-imports", "_format"]
 format-check = ["_sort-imports-check", "_format-check"]
-flow = ["format", "type-check", "test", "lint"]
+commit-flow = ["format", "type-check", "test", "lint"]
 
 [tool.isort]
 profile = "black"

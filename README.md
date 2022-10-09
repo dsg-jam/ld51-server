@@ -2,18 +2,22 @@
 
 ## Instructions
 
-### Installation
+### Preparing your environment
 
-```sh
-# install poetry
-curl -sSL https://install.python-poetry.org | python3 -
+1. Install [Python](https://www.python.org) version 3.10 or later.
+2. Install [Poetry](https://python-poetry.org) version 1.2 or later.
+3. Add [Poe the Poet](https://github.com/nat-n/poethepoet) plugin to Poetry:
 
-# install task runner plugin
-poetry self add 'poethepoet[poetry_plugin]'
+   ```sh
+   poetry self add 'poethepoet[poetry_plugin]'
+   ```
 
-# install dependencies
-poetry install
-```
+4. Install project-specific dependencies:
+
+   ```sh
+   # run in project root directory
+   poetry install
+   ```
 
 ### Running the server
 
@@ -21,8 +25,16 @@ poetry install
 poetry poe run
 ```
 
-### Running the tests
+### Workflow
+
+Run the unit tests:
 
 ```sh
 poetry poe test
+```
+
+Run all checks before pushing your changes:
+
+```sh
+poetry poe commit-flow
 ```
