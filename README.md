@@ -2,6 +2,12 @@
 
 ## Instructions
 
+### Run using Docker
+
+```sh
+docker run -it --rm -p 80:80 ghcr.io/dsg-jam/ld51-server:latest
+```
+
 ### Preparing your environment
 
 1. Install [Python](https://www.python.org) version 3.10 or later.
