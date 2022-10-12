@@ -11,13 +11,23 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-      - name: "Authenticate to Google Cloud"
+
+      - id: gcp_auth
+        name: "Authenticate to Google Cloud"
         uses: "google-github-actions/auth@v0"
         with:
           credentials_json: "${{ secrets.GCP_CREDENTIALS }}"
+          token_format: "access_token"
+
+      - uses: "docker/login-action@v1"
+        with:
+          registry: "${{ secrets.GCP_IMAGE_REGISTRY }}"
+          username: "oauth2accesstoken"
+          password: "${{ steps.gcp_auth.outputs.access_token }}"
+
       - name: Build and push
         uses: docker/build-push-action@v3
         with:
           file: deploy/container/Dockerfile
           push: true
-          tags: "${{ secrets.GCP_IMAGE_TAG }},ghcr.io/${{ github.repository }}"
+          tags: "${{ secrets.GCP_IMAGE_REGISTRY }}/${{ secrets.GCP_IMAGE_NAME }},ghcr.io/${{ github.repository }}"
