@@ -13,7 +13,7 @@ sequenceDiagram
     activate p1
     p1-->>server: Connect
     activate server
-    server->>p1: server_hello { player_id: $1, is_host: true }
+    server->>p1: server_hello { is_host: true, ... }
     deactivate p1
     deactivate server
     note right of p1: Player 1 has joined as the host
@@ -21,10 +21,10 @@ sequenceDiagram
     activate p2
     p2-->>server: Connect
     activate server
-    server->>p2: server_hello { player_id: $2, is_host: false }
+    server->>p2: server_hello { player_id: $2, is_host: false, ... }
     deactivate p2
     note right of p2: Player 2 has joined
-    server->>p1: player_joined { player_id: $2 }
+    server->>p1: player_joined { player_id: $2, ... }
     deactivate server
     note right of p1: All other players are informed that a new player just joined
 

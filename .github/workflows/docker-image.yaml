@@ -1,18 +1,23 @@
 name: Publish Docker
 
-on: [push]
+on:
+  push:
+    branches: [main]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    environment: live
+
     steps:
       - uses: actions/checkout@v3
-      - name: Publish to Registry
-        uses: elgohr/Publish-Docker-Github-Action@v4
+      - name: "Authenticate to Google Cloud"
+        uses: "google-github-actions/auth@v0"
         with:
-          name: ${{ github.repository }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-          registry: ghcr.io
-          dockerfile: deploy/container/Dockerfile
-          default_branch: main
+          credentials_json: "${{ secrets.GCP_CREDENTIALS }}"
+      - name: Build and push
+        uses: docker/build-push-action@v3
+        with:
+          file: deploy/container/Dockerfile
+          push: true
+          tags: "${{ secrets.GCP_IMAGE_TAG }},ghcr.io/${{ github.repository }}"
