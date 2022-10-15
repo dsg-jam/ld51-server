@@ -81,17 +81,19 @@ class SchemaValueGenerator:
 
     def _ex_object(self, schema: dict[str, Any]) -> dict[str, Any]:
         example_obj: dict[str, Any] = {}
-        try:
-            required_keys: set[str] = set(schema["required"])
-        except KeyError:
-            required_keys = set()
 
-        for prop_key, prop_schema in schema["properties"].items():
-            if prop_key not in required_keys:
-                if self._random_bool():
-                    continue
+        if properties := schema.get("properties"):
+            try:
+                required_keys: set[str] = set(schema["required"])
+            except KeyError:
+                required_keys = set()
 
-            example_obj[prop_key] = self._ex_schema(prop_schema)
+            for prop_key, prop_schema in properties.items():
+                if prop_key not in required_keys:
+                    if self._random_bool():
+                        continue
+
+                example_obj[prop_key] = self._ex_schema(prop_schema)
         return example_obj
 
     def _ex_array(self, schema: dict[str, Any]) -> list[Any]:
