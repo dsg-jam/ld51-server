@@ -10,30 +10,6 @@ __all__ = ["router"]
 router = APIRouter(prefix="/lobby")
 
 
-class LobbyInfo(BaseModel):
-    lobby_id: uuid.UUID
-    joinable: bool
-    players: int
-
-
-class ListLobbiesResponse(BaseModel):
-    __root__: list[LobbyInfo]
-
-
-@router.get("", response_model=ListLobbiesResponse)
-async def list_lobbies(*, lobby_manager: LobbyManager = Depends(get_lobby_manager)):
-    lobbies: list[LobbyInfo] = []
-    for lobby in lobby_manager.iter_lobbies():
-        lobbies.append(
-            LobbyInfo(
-                lobby_id=lobby.lobby_id,
-                joinable=lobby.is_joinable(),
-                players=lobby.get_player_count(),
-            )
-        )
-    return ListLobbiesResponse.parse_obj(lobbies)
-
-
 class GetLobbyInfoResponse(BaseModel):
     lobby_id: uuid.UUID
 
