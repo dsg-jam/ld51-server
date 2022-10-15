@@ -1,13 +1,8 @@
 import uuid
 
 from fastapi import APIRouter, HTTPException, WebSocket, status
+from pydantic import BaseModel
 
-from ..models import (
-    CreateLobbyResponse,
-    GetLobbyInfoResponse,
-    ListLobbiesResponse,
-    LobbyInfo,
-)
 from .lobby import Lobby
 
 __all__ = ["router"]
@@ -15,6 +10,16 @@ __all__ = ["router"]
 router = APIRouter(prefix="/lobby")
 
 _LOBBIES_BY_ID: dict[uuid.UUID, Lobby] = {}
+
+
+class LobbyInfo(BaseModel):
+    lobby_id: uuid.UUID
+    joinable: bool
+    players: int
+
+
+class ListLobbiesResponse(BaseModel):
+    __root__: list[LobbyInfo]
 
 
 @router.get("", response_model=ListLobbiesResponse)
@@ -31,6 +36,10 @@ async def list_lobbies():
     return ListLobbiesResponse.parse_obj(lobbies)
 
 
+class GetLobbyInfoResponse(BaseModel):
+    lobby_id: uuid.UUID
+
+
 @router.get(
     "/{lobby_id}",
     response_model=GetLobbyInfoResponse,
@@ -41,6 +50,10 @@ async def get_lobby_info(lobby_id: uuid.UUID):
     if lobby is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND)
     return GetLobbyInfoResponse(lobby_id=lobby.lobby_id)
+
+
+class CreateLobbyResponse(BaseModel):
+    lobby_id: uuid.UUID
 
 
 @router.post(
@@ -64,5 +77,7 @@ async def ws_join_lobby(
         raise HTTPException(status.HTTP_409_CONFLICT)
 
     # TODO handle reconnect with session_id
+    assert session_id is None
+
     player = await lobby.join_player(ws)
     await player.wait_until_done()
