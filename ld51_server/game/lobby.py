@@ -374,12 +374,13 @@ class Lobby:
 
         self._player_ready_collector.collect(player.player_id, payload)
 
-    async def __run_round(self) -> None:
+    async def __run_round(self) -> bool:
         assert self._board is not None
 
         self._round_number += 1
 
         self._state = LobbyState.GAME_GET_PLAYER_MOVES
+        # TODO: we only care for players that still have pieces on the board
         self._player_moves_collector = PlayerItemCollector(self._player_by_id.keys())
 
         await self._broadcast(
@@ -393,7 +394,6 @@ class Lobby:
         )
 
         # collect moves by all players
-        # TODO: we only care for players that still have pieces on the board
         collect_result = await self._player_moves_collector.wait_with_grace_period(
             delay=ROUND_DURATION, grace_period=ROUND_GRACE_PERIOD
         )
@@ -407,12 +407,12 @@ class Lobby:
         self._state = LobbyState.GAME_WAIT_PLAYER_READY
         self._player_ready_collector = PlayerItemCollector(self._player_by_id.keys())
 
-        # TODO: do something when the game is over
+        game_over_model = self._board.get_game_over_model()
         await self._broadcast(
             RoundResultMessage.from_payload(
                 RoundResultPayload(
                     timeline=timeline,
-                    game_over=self._board.get_game_over_model(),
+                    game_over=game_over_model,
                 )
             )
         )
@@ -423,12 +423,19 @@ class Lobby:
         # TODO: take care of players that aren't ready
         self._player_ready_collector = None
 
+        return game_over_model is not None
+
     async def __game_loop(self) -> None:
-        while True:
+        self._round_number = 0
+        game_over = False
+        while not game_over:
             try:
-                await self.__run_round()
+                game_over = await self.__run_round()
             # pylint: disable-next=broad-except
             except Exception:
                 _LOGGER.exception(
                     "encountered exception during round %s", self._round_number
                 )
+
+        self._game_loop_task = None
+        self._state = LobbyState.LOBBY

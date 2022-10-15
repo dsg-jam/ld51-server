@@ -22,7 +22,6 @@ class MoveConflictOutcome(BaseModel):
 
 class PushOutcomePayload(BaseModel):
     pusher_piece_id: uuid.UUID
-    # TODO need to indicate if the piece is off the board
     victim_piece_ids: list[uuid.UUID]
     direction: Direction
 

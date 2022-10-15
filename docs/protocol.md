@@ -2,6 +2,17 @@
 
 ## Websocket Protocol
 
+```mermaid
+stateDiagram-v2
+    state "Lobby" as lobby
+    state "Game Loop" as gl
+
+    [*]   --> lobby: Lobby created
+    lobby --> gl   : Game started by host
+    gl    --> gl
+    gl    --> lobby: Game over
+```
+
 ### Lobby Flow
 
 ```mermaid
@@ -57,4 +68,19 @@ sequenceDiagram
         deactivate s
         note over p,s: Next round starts when all players are ready
     end
+```
+
+### Game Over
+
+```mermaid
+sequenceDiagram
+    participant p as Players
+    participant s as Server
+
+    s->>p: round_result { game_over: { ... }, ... }
+    activate p
+    note left of s: game_over field in the round_result message is set. 
+    p->>s: ready_for_next_round { ... }
+    deactivate p
+    note over p,s: Next round starts when all players are ready
 ```
