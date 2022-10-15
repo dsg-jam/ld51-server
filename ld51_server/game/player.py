@@ -6,6 +6,7 @@ from typing import Any
 from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.encoders import jsonable_encoder
 
+from ..models import PlayerInfo
 from ..protocol import BaseMessage, Message
 
 _LOGGER = logging.getLogger()
@@ -15,17 +16,35 @@ _WS_MODE = "text"
 
 class Player:
     _id: uuid.UUID
+    _number: int
+    _session_id: uuid.UUID
     _ws: WebSocket
     _poll_task: asyncio.Task[None] | None
 
-    def __init__(self, ws: WebSocket) -> None:
+    def __init__(self, ws: WebSocket, *, player_number: int) -> None:
         self._id = uuid.uuid4()
+        self._number = player_number
+        self._session_id = uuid.uuid4()
         self._ws = ws
         self._poll_task = None
 
     @property
     def player_id(self) -> uuid.UUID:
         return self._id
+
+    @property
+    def player_number(self) -> int:
+        return self._number
+
+    @property
+    def session_id(self) -> uuid.UUID:
+        return self._session_id
+
+    def get_player_info_model(self) -> PlayerInfo:
+        return PlayerInfo(
+            id=self._id,
+            number=self._number,
+        )
 
     async def wait_until_done(self) -> None:
         if self._poll_task is None:

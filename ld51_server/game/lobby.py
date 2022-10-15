@@ -169,14 +169,36 @@ class Lobby:
             case _:
                 return False
 
+    def _get_next_player_number(self) -> int:
+        used_player_numbers = sorted(
+            player.player_number for player in self._player_by_id.values()
+        )
+        if not used_player_numbers:
+            # the first player is number 1
+            return 1
+        player_count = self.get_player_count()
+        if used_player_numbers[-1] != player_count:
+            # there must be a hole in the middle (because a player left the lobby)
+            for expected, actual in enumerate(used_player_numbers, 1):
+                if expected != actual:
+                    # we found the hole
+                    return expected
+
+        return player_count + 1
+
     async def join_player(self, ws: WebSocket) -> Player:
         assert self.is_joinable
 
         await ws.accept()
-        player = Player(ws)
+        player = Player(ws, player_number=self._get_next_player_number())
         if self._host_player_id is None:
             self._host_player_id = player.player_id
             self._state = LobbyState.LOBBY
+
+        # grab the list of other players before adding the new player
+        other_players = [
+            player.get_player_info_model() for player in self._player_by_id.values()
+        ]
 
         self._player_by_id[player.player_id] = player
         player.set_poll_task(
@@ -187,15 +209,21 @@ class Lobby:
         )
 
         player_id = player.player_id
+        player_info_model = player.get_player_info_model()
         await player.send_msg_silent(
             ServerHelloMessage.from_payload(
                 ServerHelloPayload(
-                    player_id=player_id, is_host=player_id == self._host_player_id
+                    session_id=player.session_id,
+                    is_host=player_id == self._host_player_id,
+                    player=player_info_model,
+                    other_players=other_players,
                 )
             )
         )
         await self._broadcast(
-            PlayerJoinedMessage.from_payload(PlayerJoinedPayload(player_id=player_id)),
+            PlayerJoinedMessage.from_payload(
+                PlayerJoinedPayload(player=player_info_model)
+            ),
             exclude_player_ids={player_id},
         )
         return player

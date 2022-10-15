@@ -54,11 +54,15 @@ async def create_lobby():
 
 
 @router.websocket("/{lobby_id}/join")
-async def ws_join_lobby(lobby_id: uuid.UUID, ws: WebSocket):
+async def ws_join_lobby(
+    lobby_id: uuid.UUID, ws: WebSocket, *, session_id: uuid.UUID | None = None
+):
     lobby = _LOBBIES_BY_ID.get(lobby_id)
     if lobby is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND)
     if not lobby.is_joinable():
         raise HTTPException(status.HTTP_409_CONFLICT)
+
+    # TODO handle reconnect with session_id
     player = await lobby.join_player(ws)
     await player.wait_until_done()
