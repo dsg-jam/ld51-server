@@ -82,3 +82,11 @@ class Player:
 
     async def disconnect(self, code: int, reason: str | None = None) -> None:
         await self._ws.close(code=code, reason=reason)
+
+    async def disconnect_silent(self, code: int, reason: str | None = None) -> bool:
+        try:
+            await self.disconnect(code, reason)
+        except WebSocketDisconnect:
+            return False
+        else:
+            return True

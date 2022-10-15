@@ -265,4 +265,4 @@ def test_game():
                     ws1, ws2, ws1_player_id=ws1_player_id, ws2_player_id=ws2_player_id
                 )
                 # there's a small race condition here
-                time.sleep(0.01)
+                time.sleep(0.1)

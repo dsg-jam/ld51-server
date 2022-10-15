@@ -43,11 +43,14 @@ PRE_GAME_DURATION: float = 5.0
 DURATION_PER_EVENT: float = 5.0
 PIECES_PER_PLAYER: int = 3
 
+# see: <https://www.rfc-editor.org/rfc/rfc6455.html#section-7.4>
+_WS_CLOSE_GOING_AWAY = 1001
 _WS_CLOSE_PROTOCOL_ERROR = 1002
 
 
 class LobbyState(enum.IntEnum):
     EMPTY = enum.auto()
+    SHUTDOWN = enum.auto()
     LOBBY = enum.auto()
     GAME_ROUND_START = enum.auto()
     GAME_GET_PLAYER_MOVES = enum.auto()
@@ -160,6 +163,10 @@ class Lobby:
     def lobby_id(self) -> uuid.UUID:
         return self._id
 
+    @property
+    def created_at(self) -> datetime:
+        return self._created_at
+
     def get_player_count(self) -> int:
         return len(self._player_by_id)
 
@@ -169,6 +176,17 @@ class Lobby:
                 return True
             case _:
                 return False
+
+    async def shutdown(self) -> None:
+        if task := self._game_loop_task:
+            task.cancel()
+        self._state = LobbyState.SHUTDOWN
+        await asyncio.gather(
+            *(
+                player.disconnect_silent(_WS_CLOSE_GOING_AWAY, "lobby shutting down")
+                for player in self._player_by_id.values()
+            )
+        )
 
     def _get_next_player_number(self) -> int:
         used_player_numbers = sorted(
@@ -288,6 +306,9 @@ class Lobby:
     async def _on_player_disconnect(self, player: Player) -> None:
         del self._player_by_id[player.player_id]
         player.set_poll_task(None)
+
+        if self._state == LobbyState.SHUTDOWN:
+            return
 
         if collector := self._player_moves_collector:
             collector.remove_player(player.player_id)
