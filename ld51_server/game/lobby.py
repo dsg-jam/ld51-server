@@ -11,7 +11,7 @@ from typing import Any, Generic, Iterable, TypeVar
 from fastapi import WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 
-from ..models import TimelineEventAction
+from ..models import PlayerInfo, TimelineEventAction
 from ..protocol import (
     BaseMessage,
     ErrorMessage,
@@ -167,8 +167,16 @@ class Lobby:
     def created_at(self) -> datetime:
         return self._created_at
 
+    def get_lobby_state_repr(self) -> str:
+        return self._state.name
+
     def get_player_count(self) -> int:
         return len(self._player_by_id)
+
+    def get_player_info_models(self) -> list[PlayerInfo]:
+        return [
+            player.get_player_info_model() for player in self._player_by_id.values()
+        ]
 
     def is_joinable(self) -> bool:
         match self._state:
@@ -215,9 +223,7 @@ class Lobby:
             self._state = LobbyState.LOBBY
 
         # grab the list of other players before adding the new player
-        other_players = [
-            player.get_player_info_model() for player in self._player_by_id.values()
-        ]
+        other_players = self.get_player_info_models()
 
         self._player_by_id[player.player_id] = player
         player.set_poll_task(
@@ -357,10 +363,7 @@ class Lobby:
             ServerStartGameMessage.from_payload(
                 ServerStartGamePayload(
                     platform=platform.to_model(),
-                    players=[
-                        player.get_player_info_model()
-                        for player in self._player_by_id.values()
-                    ],
+                    players=self.get_player_info_models(),
                     pieces=self._board.get_pieces_model(),
                     round_start_in=round_start_in,
                 )
