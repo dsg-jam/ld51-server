@@ -1,7 +1,7 @@
 import enum
 import uuid
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class Direction(str, enum.Enum):
@@ -83,6 +83,14 @@ class PlayerMove(BaseModel):
     action: PieceAction
 
 
+class PlayerInfo(BaseModel):
+    id: uuid.UUID = Field(description="Globally unique identifier of the player")
+    number: int = Field(
+        description="Human-friendly identifier of the player. Only unique within the session",
+        ge=1,
+    )
+
+
 class GameOver(BaseModel):
     winner_player_id: uuid.UUID | None
 
@@ -93,5 +101,6 @@ __all__ = [
     "Position",
     "PlayerPiecePosition",
     "PlayerMove",
+    "PlayerInfo",
     "GameOver",
 ]

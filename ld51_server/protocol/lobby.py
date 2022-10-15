@@ -1,15 +1,21 @@
 import uuid
 from typing import Literal, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from ..models import BoardPlatform, PlayerPiecePosition
+from ..models import BoardPlatform, PlayerInfo, PlayerPiecePosition
 from .base import BaseMessage
 
 
 class ServerHelloPayload(BaseModel):
-    player_id: uuid.UUID
+    session_id: uuid.UUID = Field(
+        description="Private session id. This can be used to reconnect to the lobby in case of a disconnect."
+    )
     is_host: bool
+    player: PlayerInfo
+    other_players: list[PlayerInfo] = Field(
+        description="Other players that are already in the lobby."
+    )
 
 
 class ServerHelloMessage(BaseMessage[Literal["server_hello"], ServerHelloPayload]):
@@ -17,7 +23,7 @@ class ServerHelloMessage(BaseMessage[Literal["server_hello"], ServerHelloPayload
 
 
 class PlayerJoinedPayload(BaseModel):
-    player_id: uuid.UUID
+    player: PlayerInfo
 
 
 class PlayerJoinedMessage(BaseMessage[Literal["player_joined"], PlayerJoinedPayload]):

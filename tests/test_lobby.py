@@ -77,16 +77,18 @@ def test_join_two_players():
         # first the host should've received a hello msg
         data = _rx_msg_payload_type(ws1, ServerHelloPayload)
         assert data.is_host is True
+        assert data.player.number == 1
 
         with _lobby_connect_ws(client, lobby_id) as ws2:
             # and the other player too
             data = _rx_msg_payload_type(ws2, ServerHelloPayload)
-            other_player_id = data.player_id
+            other_player_id = data.player.id
             assert data.is_host is False
 
             # the host should receive a join message for the other player
             data = _rx_msg_payload_type(ws1, PlayerJoinedPayload)
-            assert data.player_id == other_player_id
+            assert data.player.id == other_player_id
+            assert data.player.number == 2
 
 
 def _game_first_round(
@@ -209,12 +211,12 @@ def test_game():
 
     with _lobby_connect_ws(client, lobby_id) as ws1:
         ws1_data = _rx_msg_payload_type(ws1, ServerHelloPayload)
-        ws1_player_id = ws1_data.player_id
+        ws1_player_id = ws1_data.player.id
         assert ws1_data.is_host is True
 
         with _lobby_connect_ws(client, lobby_id) as ws2:
             ws2_data = _rx_msg_payload_type(ws2, ServerHelloPayload)
-            ws2_player_id = ws2_data.player_id
+            ws2_player_id = ws2_data.player.id
 
             _rx_msg_payload_type(ws1, PlayerJoinedPayload)
 
