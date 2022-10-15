@@ -1,3 +1,4 @@
+import time
 import uuid
 from typing import Any, Type, TypeVar
 
@@ -57,6 +58,13 @@ def _rx_msg_payload(ws: WebSocketTestSession) -> MessagePayloadT:
 
 def _tx_msg(ws: WebSocketTestSession, msg: BaseMessage[Any, Any]) -> None:
     ws.send_json(jsonable_encoder(msg))
+
+
+def _tx_msg_broadcast(
+    msg: BaseMessage[Any, Any], *clients: WebSocketTestSession
+) -> None:
+    for ws in clients:
+        _tx_msg(ws, msg)
 
 
 _MT = TypeVar("_MT", bound=MessagePayloadT)
@@ -141,8 +149,9 @@ def _game_first_round(
     ws2_data = _rx_msg_payload_type(ws2, RoundResultPayload)
     assert ws2_data == ws1_data
 
-    _tx_msg(ws1, ReadyForNextRoundMessage.from_payload(ReadyForNextRoundPayload()))
-    _tx_msg(ws2, ReadyForNextRoundMessage.from_payload(ReadyForNextRoundPayload()))
+    _tx_msg_broadcast(
+        ReadyForNextRoundMessage.from_payload(ReadyForNextRoundPayload()), ws1, ws2
+    )
 
 
 def _game_second_round(
@@ -199,6 +208,10 @@ def _game_second_round(
     ws2_data = _rx_msg_payload_type(ws2, RoundResultPayload)
     assert ws2_data == ws1_data
 
+    _tx_msg_broadcast(
+        ReadyForNextRoundMessage.from_payload(ReadyForNextRoundPayload()), ws1, ws2
+    )
+
 
 @pytest.mark.timeout(5)
 def test_game():
@@ -220,6 +233,7 @@ def test_game():
 
             _rx_msg_payload_type(ws1, PlayerJoinedPayload)
 
+            # our platform is just 4 tiles in a row (horizontal)
             platform = BoardPlatform(
                 tiles=[
                     BoardPlatformTile(
@@ -230,19 +244,24 @@ def test_game():
                     for x in range(4)
                 ]
             )
-            _tx_msg(
-                ws1,
-                HostStartGameMessage.from_payload(
-                    HostStartGamePayload(platform=platform)
-                ),
-            )
 
-            ws1_data = _rx_msg_payload_type(ws1, ServerStartGamePayload)
-            assert ws1_data.platform == platform
-            ws2_data = _rx_msg_payload_type(ws2, ServerStartGamePayload)
-            assert ws2_data == ws1_data
+            # play two games in the same lobby to make sure the state transitions hold up
+            for _ in range(2):
+                _tx_msg(
+                    ws1,
+                    HostStartGameMessage.from_payload(
+                        HostStartGamePayload(platform=platform)
+                    ),
+                )
 
-            _game_first_round(ws1, ws2, ws1_player_id=ws1_player_id)
-            _game_second_round(
-                ws1, ws2, ws1_player_id=ws1_player_id, ws2_player_id=ws2_player_id
-            )
+                ws1_data = _rx_msg_payload_type(ws1, ServerStartGamePayload)
+                assert ws1_data.platform == platform
+                ws2_data = _rx_msg_payload_type(ws2, ServerStartGamePayload)
+                assert ws2_data == ws1_data
+
+                _game_first_round(ws1, ws2, ws1_player_id=ws1_player_id)
+                _game_second_round(
+                    ws1, ws2, ws1_player_id=ws1_player_id, ws2_player_id=ws2_player_id
+                )
+                # there's a small race condition here
+                time.sleep(0.01)
