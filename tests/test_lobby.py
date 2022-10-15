@@ -221,6 +221,7 @@ def test_game():
     import ld51_server.game.lobby
 
     ld51_server.game.lobby.ROUND_DURATION = 0.0
+    ld51_server.game.lobby.PRE_GAME_DURATION = 0.0
 
     with _lobby_connect_ws(client, lobby_id) as ws1:
         ws1_data = _rx_msg_payload_type(ws1, ServerHelloPayload)

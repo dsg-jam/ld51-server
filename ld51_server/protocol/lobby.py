@@ -42,8 +42,11 @@ class HostStartGameMessage(
 
 class ServerStartGamePayload(BaseModel):
     platform: BoardPlatform
-    # TODO this doesn't actually need to be here because the round start message will also contain the piece positions
+    players: list[PlayerInfo]
     pieces: list[PlayerPiecePosition]
+    round_start_in: float = Field(
+        description="Time until the first round starts in seconds.", ge=0.0
+    )
 
 
 class ServerStartGameMessage(

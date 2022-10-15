@@ -1,3 +1,4 @@
+import math
 import uuid
 from random import Random
 from typing import Any
@@ -31,11 +32,52 @@ class SchemaValueGenerator:
     ) -> bool:
         return self._random_bool()
 
-    def _ex_integer(self) -> int:
-        return self._rng.randrange(-500, 500)
+    def _get_inclusive_discrete_min_bound(
+        self, schema: dict[str, Any], scale: float
+    ) -> int | None:
+        # dummy variable because of pylint
+        # see: <https://github.com/PyCQA/pylint/issues/5327>
+        value = None
+        match schema:
+            case {"minimum": value} if value is not None:
+                return math.ceil(value * scale)
+            case {"exclusiveMinimum": value} if value is not None:
+                ceiled = math.ceil(value * scale)
+                if ceiled == value:
+                    return ceiled + 1
+                return ceiled
+            case _:
+                return None
 
-    def _ex_number(self) -> float:
-        return self._ex_integer() / 100.0
+    def _get_inclusive_discrete_max_bound(
+        self, schema: dict[str, Any], scale: float
+    ) -> int | None:
+        # dummy variable because of pylint
+        # see: <https://github.com/PyCQA/pylint/issues/5327>
+        value = None
+        match schema:
+            case {"maximum": value} if value is not None:
+                return math.floor(value * scale)
+            case {"exclusiveMaximum": value} if value is not None:
+                floored = math.floor(value * scale)
+                if floored == value:
+                    return floored - 1
+                return floored
+            case _:
+                return None
+
+    def _ex_integer(self, schema: dict[str, Any], *, scale: float = 1.0) -> int:
+        inclusive_min = self._get_inclusive_discrete_min_bound(schema, scale)
+        if inclusive_min is None:
+            inclusive_min = round(-50 * scale)
+        inclusive_max = self._get_inclusive_discrete_max_bound(schema, scale)
+        if inclusive_max is None:
+            inclusive_max = round(50 * scale)
+        return self._rng.randint(inclusive_min, inclusive_max)
+
+    def _ex_number(self, schema: dict[str, Any]) -> float:
+        scale = 100.0
+        return self._ex_integer(schema, scale=scale) / scale
 
     def _ex_object(self, schema: dict[str, Any]) -> dict[str, Any]:
         example_obj: dict[str, Any] = {}
@@ -82,9 +124,9 @@ class SchemaValueGenerator:
             case {"type": "boolean"}:
                 return self._ex_boolean()
             case {"type": "integer"}:
-                return self._ex_integer()
+                return self._ex_integer(schema)
             case {"type": "number"}:
-                return self._ex_number()
+                return self._ex_number(schema)
             case {"type": "object"}:
                 return self._ex_object(schema)
             case {"type": "array"}:

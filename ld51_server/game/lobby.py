@@ -39,6 +39,7 @@ _LOGGER = logging.getLogger()
 
 ROUND_DURATION: float = 10.0
 ROUND_GRACE_PERIOD: float = ROUND_DURATION / 5.0
+PRE_GAME_DURATION: float = 5.0
 DURATION_PER_EVENT: float = 5.0
 PIECES_PER_PLAYER: int = 3
 
@@ -244,7 +245,7 @@ class Lobby:
                 break
 
             try:
-                await self._on_player_msg(player, msg)
+                await asyncio.shield(self._on_player_msg(player, msg))
             # we need broad exception handling here because otherwise the exception details will be lost entirely as there's no one above us to catch the exception
             # pylint: disable-next=broad-except
             except Exception:
@@ -329,14 +330,23 @@ class Lobby:
             rng, list(self._player_by_id.keys()), PIECES_PER_PLAYER
         )
 
+        round_start_in = PRE_GAME_DURATION
+
         await self._broadcast(
             ServerStartGameMessage.from_payload(
                 ServerStartGamePayload(
                     platform=platform.to_model(),
+                    players=[
+                        player.get_player_info_model()
+                        for player in self._player_by_id.values()
+                    ],
                     pieces=self._board.get_pieces_model(),
+                    round_start_in=round_start_in,
                 )
             )
         )
+
+        await asyncio.sleep(round_start_in)
 
         assert self._game_loop_task is None
         self._game_loop_task = asyncio.create_task(self.__game_loop(), name="game loop")

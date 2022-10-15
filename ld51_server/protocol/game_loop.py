@@ -1,14 +1,17 @@
 from typing import Literal, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ..models import GameOver, PlayerMove, PlayerPiecePosition, TimelineEvent
 from .base import BaseMessage
 
 
 class RoundStartPayload(BaseModel):
-    round_number: int
-    round_duration: float
+    round_number: int = Field(gt=0)
+    round_duration: float = Field(
+        description="Time until the end of the move phase of the round in seconds.",
+        ge=0.0,
+    )
     board_state: list[PlayerPiecePosition]
 
 
