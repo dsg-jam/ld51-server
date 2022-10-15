@@ -10,7 +10,6 @@ packages = [{ include = "ld51_server" }]
 fastapi = "^0.85.0"
 python = "^3.10"
 websockets = "^10.3"
-phantom-types = {extras = ["dateutil"], version = "^1.0.0"}
 
 [tool.poetry.group.dev.dependencies]
 black = "^22.8.0"
@@ -47,6 +46,9 @@ extension-pkg-whitelis = ["pydantic"]
 
 [tool.pylint.basic]
 good-names = ["ws", "x", "y"]
+
+[tool.pylint.miscellaneous]
+notes = ["FIXME"]
 
 [tool.pylint.message_control]
 disable = [
