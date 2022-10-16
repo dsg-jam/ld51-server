@@ -82,5 +82,5 @@ sequenceDiagram
     note left of s: game_over field in the round_result message is set. 
     p->>s: ready_for_next_round { ... }
     deactivate p
-    note over p,s: Next round starts when all players are ready
+    note over p,s: Server and players transition to the lobby.
 ```
