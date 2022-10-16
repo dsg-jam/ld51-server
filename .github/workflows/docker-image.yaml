@@ -12,6 +12,13 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: "Docker Auth: GitHub"
+        uses: "docker/login-action@v1"
+        with:
+          registry: ghcr.io
+          username: "${{ github.actor }}"
+          password: "${{ secrets.GITHUB_TOKEN }}"
+
       - id: gcp_auth
         name: "Authenticate to Google Cloud"
         uses: "google-github-actions/auth@v0"
@@ -19,17 +26,12 @@ jobs:
           credentials_json: "${{ secrets.GCP_CREDENTIALS }}"
           token_format: "access_token"
 
-      - uses: "docker/login-action@v1"
+      - name: "Docker Auth: GCP"
+        uses: "docker/login-action@v1"
         with:
           registry: "${{ secrets.GCP_IMAGE_REGISTRY }}"
           username: "oauth2accesstoken"
           password: "${{ steps.gcp_auth.outputs.access_token }}"
-
-      - uses: "docker/login-action@v1"
-        with:
-          registry: ghcr.io
-          username: "${{ github.actor }}"
-          password: "${{ secrets.GITHUB_TOKEN }}"
 
       - name: Build and push
         uses: docker/build-push-action@v3
@@ -37,3 +39,11 @@ jobs:
           file: deploy/container/Dockerfile
           push: true
           tags: "${{ secrets.GCP_IMAGE_REGISTRY }}/${{ secrets.GCP_IMAGE_NAME }},ghcr.io/${{ github.repository }}"
+
+      - name: Deploy to Cloud Run
+        id: deploy_cloud_run
+        uses: google-github-actions/deploy-cloudrun@v0
+        with:
+          service: ${{ secrets.GCP_CLOUD_RUN_SERVICE }}
+          region: ${{ secrets.GCP_CLOUD_RUN_REGION }}
+          image: "${{ secrets.GCP_IMAGE_REGISTRY }}/${{ secrets.GCP_IMAGE_NAME }}:${{ github.sha }}"
