@@ -1,11 +1,11 @@
-name: Publish Docker
+name: Deploy
 
 on:
   push:
     branches: [main]
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
     environment: live
 
@@ -33,12 +33,18 @@ jobs:
           username: "oauth2accesstoken"
           password: "${{ steps.gcp_auth.outputs.access_token }}"
 
+      - name: Generate image names
+        id: image
+        run: |-
+          echo "github=ghcr.io/${{ github.repository }}:latest" >>"$GITHUB_OUTPUT"
+          echo "gcp=${{ secrets.GCP_IMAGE_REGISTRY }}/${{ secrets.GCP_IMAGE_NAME }}:${{ github.sha }}" >>"$GITHUB_OUTPUT"
+
       - name: Build and push
         uses: docker/build-push-action@v3
         with:
           file: deploy/container/Dockerfile
           push: true
-          tags: "${{ secrets.GCP_IMAGE_REGISTRY }}/${{ secrets.GCP_IMAGE_NAME }},ghcr.io/${{ github.repository }}"
+          tags: "${{ steps.image.outputs.github }},${{ steps.image.outputs.gcp }}"
 
       - name: Deploy to Cloud Run
         id: deploy_cloud_run
@@ -46,4 +52,4 @@ jobs:
         with:
           service: ${{ secrets.GCP_CLOUD_RUN_SERVICE }}
           region: ${{ secrets.GCP_CLOUD_RUN_REGION }}
-          image: "${{ secrets.GCP_IMAGE_REGISTRY }}/${{ secrets.GCP_IMAGE_NAME }}:${{ github.sha }}"
+          image: "${{ steps.image.outputs.gcp }}"
