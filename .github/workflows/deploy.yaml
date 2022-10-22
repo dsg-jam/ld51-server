@@ -33,6 +33,8 @@ jobs:
       - name: "Set up Google Cloud SDK"
         uses: "google-github-actions/setup-gcloud@v0"
 
+      - run: gcloud info
+
       - name: "Docker Auth: GCP"
         run: gcloud auth configure-docker "${{ env.GCP_IMAGE_REGISTRY }}"
 
