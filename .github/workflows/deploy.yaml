@@ -9,6 +9,11 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: live
+    env:
+      GCP_CLOUD_RUN_REGION: europe-west1
+      GCP_CLOUD_RUN_SERVICE: ld51-server
+      GCP_IMAGE_NAME: shared/ld51-server
+      GCP_IMAGE_REGISTRY: europe-west1-docker.pkg.dev
 
     steps:
       - uses: actions/checkout@v3
@@ -30,7 +35,7 @@ jobs:
       - name: "Docker Auth: GCP"
         uses: "docker/login-action@v1"
         with:
-          registry: "${{ secrets.GCP_IMAGE_REGISTRY }}"
+          registry: "${{ env.GCP_IMAGE_REGISTRY }}"
           username: "oauth2accesstoken"
           password: "${{ steps.gcp_auth.outputs.access_token }}"
 
@@ -38,7 +43,7 @@ jobs:
         id: image
         run: |-
           echo "github=ghcr.io/${{ github.repository }}:latest" >>"$GITHUB_OUTPUT"
-          echo "gcp=${{ secrets.GCP_IMAGE_REGISTRY }}/${{ secrets.GCP_IMAGE_NAME }}:${{ github.sha }}" >>"$GITHUB_OUTPUT"
+          echo "gcp=${{ env.GCP_IMAGE_REGISTRY }}/${{ env.GCP_IMAGE_NAME }}:${{ github.sha }}" >>"$GITHUB_OUTPUT"
 
       - name: Build and push
         uses: docker/build-push-action@v3
@@ -51,6 +56,6 @@ jobs:
         id: deploy_cloud_run
         uses: google-github-actions/deploy-cloudrun@v0
         with:
-          service: ${{ secrets.GCP_CLOUD_RUN_SERVICE }}
-          region: ${{ secrets.GCP_CLOUD_RUN_REGION }}
+          service: ${{ env.GCP_CLOUD_RUN_SERVICE }}
+          region: ${{ env.GCP_CLOUD_RUN_REGION }}
           image: "${{ steps.image.outputs.gcp }}"
