@@ -11,8 +11,11 @@ jobs:
     environment: live
     env:
       GCP_CLOUD_RUN_REGION: europe-west1
+      GCP_DOMAIN: "ld51-server.jam.dsg.li"
       GCP_IMAGE_NAME: shared/ld51-server
       GCP_IMAGE_REGISTRY: europe-west1-docker.pkg.dev
+      GCP_RUN_SERVICE_ACCOUNT: "ld51-server-run@dsg-jam-366314.iam.gserviceaccount.com"
+      GCP_SERVICE_ID: ld51-server
 
     steps:
       - uses: actions/checkout@v3
@@ -53,7 +56,7 @@ jobs:
 
       - name: Prepare Service template
         env:
-          SERVICE_ACCOUNT: ""
+          SERVICE_ACCOUNT: "${{ env.GCP_RUN_SERVICE_ACCOUNT }}"
           IMAGE: "${{ steps.image.outputs.gcp }}"
         run: |
           gcloud config set run/region "${{ env.GCP_CLOUD_RUN_REGION }}"
@@ -63,4 +66,6 @@ jobs:
         run: gcloud run services replace service.yaml
 
       - name: Set Access Policy
-        run: gcloud run services set-iam-policy ld51-server deploy/knative/gcp-iam-policy.yaml
+        run: |
+          gcloud run services set-iam-policy "${{ env.GCP_SERVICE_ID }}" deploy/knative/gcp-iam-policy.yaml
+          gcloud beta run domain-mappings create --service "${{ env.GCP_SERVICE_ID }}" --domain "${{ env.GCP_DOMAIN }}"
