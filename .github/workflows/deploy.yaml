@@ -56,10 +56,11 @@ jobs:
           SERVICE_ACCOUNT: ""
           IMAGE: "${{ steps.image.outputs.gcp }}"
         run: |
+          gcloud config set run/region "${{ env.GCP_CLOUD_RUN_REGION }}"
           envsubst <deploy/knative/service.template.yaml >service.yaml
 
       - name: Deploy to Cloud Run
-        run: gcloud run services replace --region "${{ env.GCP_CLOUD_RUN_REGION }}" service.yaml
+        run: gcloud run services replace service.yaml
 
       - name: Set Access Policy
         run: gcloud run services set-iam-policy ld51-server deploy/knative/gcp-iam-policy.yaml
