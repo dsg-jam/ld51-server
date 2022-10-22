@@ -35,6 +35,8 @@ jobs:
 
       - name: "Set up Google Cloud SDK"
         uses: "google-github-actions/setup-gcloud@v0"
+        with:
+          install_components: "beta"
 
       - name: "Docker Auth: GCP"
         run: gcloud auth configure-docker "${{ env.GCP_IMAGE_REGISTRY }}"
@@ -65,7 +67,7 @@ jobs:
       - name: Deploy to Cloud Run
         run: gcloud run services replace service.yaml
 
-      - name: Set Access Policy
+      - name: Configure deployment
         run: |
           gcloud run services set-iam-policy "${{ env.GCP_SERVICE_ID }}" deploy/knative/gcp-iam-policy.yaml
           gcloud beta run domain-mappings create --service "${{ env.GCP_SERVICE_ID }}" --domain "${{ env.GCP_DOMAIN }}"
