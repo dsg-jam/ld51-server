@@ -1,6 +1,7 @@
+import importlib.metadata
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import importlib.metadata
 
 from . import dev, game
 
@@ -9,7 +10,7 @@ PROJECT_NAME = "ld51_server"
 try:
     VERSION = importlib.metadata.version(PROJECT_NAME)
 except importlib.metadata.PackageNotFoundError:
-    VERSION = "unknown"
+    VERSION = "unknown"  # type: ignore
 
 app = FastAPI(
     title="LD51 Server",

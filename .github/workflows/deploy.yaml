@@ -11,7 +11,6 @@ jobs:
     environment: live
     env:
       GCP_CLOUD_RUN_REGION: europe-west1
-      GCP_CLOUD_RUN_SERVICE: ld51-server
       GCP_IMAGE_NAME: shared/ld51-server
       GCP_IMAGE_REGISTRY: europe-west1-docker.pkg.dev
 
@@ -37,13 +36,13 @@ jobs:
       - name: "Docker Auth: GCP"
         run: gcloud auth configure-docker "${{ env.GCP_IMAGE_REGISTRY }}"
 
-      - name: Generate image names
+      - name: Generate Image Names
         id: image
         run: |-
           echo "github=ghcr.io/${{ github.repository }}:latest" >>"$GITHUB_OUTPUT"
           echo "gcp=${{ env.GCP_IMAGE_REGISTRY }}/${{ steps.gcp_auth.outputs.project_id }}/${{ env.GCP_IMAGE_NAME }}:${{ github.sha }}" >>"$GITHUB_OUTPUT"
 
-      - name: Build and push
+      - name: Build and Push Images
         uses: docker/build-push-action@v3
         with:
           file: deploy/container/Dockerfile
@@ -52,10 +51,15 @@ jobs:
             ${{ steps.image.outputs.github }}
             ${{ steps.image.outputs.gcp }}
 
+      - name: Prepare Service template
+        env:
+          SERVICE_ACCOUNT: ""
+          IMAGE: "${{ steps.image.outputs.gcp }}"
+        run: |
+          envsubst <deploy/knative/service.template.yaml >service.yaml
+
       - name: Deploy to Cloud Run
-        id: deploy_cloud_run
-        uses: google-github-actions/deploy-cloudrun@v0
-        with:
-          service: ${{ env.GCP_CLOUD_RUN_SERVICE }}
-          region: ${{ env.GCP_CLOUD_RUN_REGION }}
-          image: "${{ steps.image.outputs.gcp }}"
+        run: gcloud run services replace --region "${{ env.GCP_CLOUD_RUN_REGION }}" service.yaml
+
+      - name: Set Access Policy
+        run: gcloud run services set-iam-policy ld51-server deploy/knative/gcp-iam-policy.yaml

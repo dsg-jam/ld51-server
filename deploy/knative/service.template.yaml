@@ -1,0 +1,15 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: ld51-server
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/maxScale: 1
+    spec:
+      serviceAccountName: "${SERVICE_ACCOUNT}"
+      containers:
+        - image: "${IMAGE}"
+          ports:
+            - containerPort: 80
