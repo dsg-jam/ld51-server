@@ -9,6 +9,8 @@ spec:
         autoscaling.knative.dev/maxScale: "1"
     spec:
       serviceAccountName: "${SERVICE_ACCOUNT}"
+      timeoutSeconds: 3600
+      idleTimeoutSeconds: 1800
       containers:
         - image: "${IMAGE}"
           ports:
