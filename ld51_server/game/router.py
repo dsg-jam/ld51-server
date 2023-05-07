@@ -65,7 +65,7 @@ async def ws_join_lobby(
     if isinstance(id_or_code, uuid.UUID):
         lobby = lobby_manager.get_lobby(id_or_code)
     else:
-        lobby = lobby_manager.get_lobby_by_join_code(id_or_code)
+        lobby = lobby_manager.get_lobby_by_join_code(id_or_code.upper())
 
     if lobby is None:
         await ws.close(**ws_close_code.LOBBY_NOT_FOUND)
