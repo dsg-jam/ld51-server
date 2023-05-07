@@ -52,11 +52,15 @@ async def ws_join_lobby(
     lobby = lobby_manager.get_lobby(lobby_id)
     if lobby is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND)
-    # TODO handle reconnect with session_id
-    assert session_id is None
 
-    if not lobby.is_joinable():
-        raise HTTPException(status.HTTP_409_CONFLICT)
+    if session_id is None:
+        if not lobby.is_joinable():
+            raise HTTPException(status.HTTP_409_CONFLICT)
 
-    player = await lobby.join_player(ws)
+        player = await lobby.join_player(ws)
+    else:
+        player = await lobby.reconnect_player(ws, session_id)
+        if player is None:
+            raise HTTPException(status.HTTP_410_GONE)
+
     await player.wait_until_done()

@@ -46,13 +46,13 @@ class ReadyForNextRoundMessage(
     ...
 
 
-GameLoopMessageT = Union[
+GameLoopMessageType = Union[
     PlayerMovesMessage,
     ReadyForNextRoundMessage,
     RoundResultMessage,
     RoundStartMessage,
 ]
-GameLoopMessagePayloadT = Union[
+GameLoopMessagePayloadType = Union[
     PlayerMovesPayload,
     ReadyForNextRoundPayload,
     RoundResultPayload,
@@ -69,6 +69,6 @@ __all__ = [
     "PlayerMovesMessage",
     "ReadyForNextRoundPayload",
     "ReadyForNextRoundMessage",
-    "GameLoopMessageT",
-    "GameLoopMessagePayloadT",
+    "GameLoopMessageType",
+    "GameLoopMessagePayloadType",
 ]

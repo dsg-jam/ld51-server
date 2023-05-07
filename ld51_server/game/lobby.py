@@ -1,5 +1,4 @@
 import asyncio
-import dataclasses
 import enum
 import logging
 import time
@@ -20,6 +19,8 @@ from ..protocol import (
     Message,
     PlayerJoinedMessage,
     PlayerJoinedPayload,
+    PlayerLeftMessage,
+    PlayerLeftPayload,
     PlayerMovesPayload,
     ReadyForNextRoundPayload,
     RoundResultMessage,
@@ -40,6 +41,7 @@ _LOGGER = logging.getLogger()
 ROUND_DURATION: float = 10.0
 ROUND_GRACE_PERIOD: float = ROUND_DURATION / 5.0
 PRE_GAME_DURATION: float = 5.0
+PLAYER_RECONNECT_DURATION: float = 10.0
 DURATION_PER_EVENT: float = 5.0
 PIECES_PER_PLAYER: int = 3
 
@@ -60,10 +62,18 @@ class LobbyState(enum.IntEnum):
 _ItemT = TypeVar("_ItemT")
 
 
-@dataclasses.dataclass()
 class PlayerItemCollectorResult(Generic[_ItemT]):
     missing_player_ids: set[uuid.UUID]
     collected: dict[uuid.UUID, _ItemT]
+
+    def __init__(
+        self,
+        *,
+        missing_player_ids: set[uuid.UUID],
+        collected: dict[uuid.UUID, _ItemT],
+    ) -> None:
+        self.missing_player_ids = missing_player_ids
+        self.collected = collected
 
 
 class PlayerItemCollector(Generic[_ItemT]):
@@ -213,6 +223,38 @@ class Lobby:
 
         return player_count + 1
 
+    def _set_player_poll_task(self, player: Player) -> None:
+        player.set_poll_task(
+            asyncio.create_task(
+                self.__player_poll_loop(player),
+                name=f"poll task for player {player.player_id}",
+            )
+        )
+
+    async def reconnect_player(
+        self, ws: WebSocket, session_id: uuid.UUID
+    ) -> Player | None:
+        player: Player
+        for player in self._player_by_id.values():
+            if player.session_id == session_id:
+                break
+        else:
+            return None
+
+        player.replace_ws(ws)
+        self._set_player_poll_task(player)
+
+        await self._broadcast(
+            PlayerJoinedMessage.from_payload(
+                PlayerJoinedPayload(
+                    player=player.get_player_info_model(), reconnect=True
+                )
+            ),
+            exclude_player_ids={player.player_id},
+        )
+
+        # TODO: bring the player up to speed with what's currently happening
+
     async def join_player(self, ws: WebSocket) -> Player:
         assert self.is_joinable
 
@@ -226,12 +268,7 @@ class Lobby:
         other_players = self.get_player_info_models()
 
         self._player_by_id[player.player_id] = player
-        player.set_poll_task(
-            asyncio.create_task(
-                self.__player_poll_loop(player),
-                name=f"poll task for player {player.player_id}",
-            )
-        )
+        self._set_player_poll_task(player)
 
         player_id = player.player_id
         player_info_model = player.get_player_info_model()
@@ -247,7 +284,7 @@ class Lobby:
         )
         await self._broadcast(
             PlayerJoinedMessage.from_payload(
-                PlayerJoinedPayload(player=player_info_model)
+                PlayerJoinedPayload(player=player_info_model, reconnect=False)
             ),
             exclude_player_ids={player_id},
         )
@@ -279,24 +316,39 @@ class Lobby:
                     msg,
                 )
 
-        await self._on_player_disconnect(player)
+        if self._state == LobbyState.SHUTDOWN:
+            return
+
+        # player lost connection, start waiting hoping for them to reconnect.
+        # If they do, this current poll loop task will be cancelled and replaced with a fresh one, so we won't get past this line.
+        await asyncio.sleep(PLAYER_RECONNECT_DURATION)
+
+        # the player hasn't reconnected in time
+        await asyncio.shield(self._on_player_leave(player))
 
     async def _broadcast(
         self,
         msg: BaseMessage[Any, Any],
         *,
+        include_player_ids: set[uuid.UUID] | None = None,
         exclude_player_ids: set[uuid.UUID] | None = None,
     ) -> None:
+        if include_player_ids:
+            players = [
+                self._player_by_id[player_id] for player_id in include_player_ids
+            ]
+        else:
+            players = list(self._player_by_id.values())
+
         if exclude_player_ids:
             players = [
                 player
-                for player in self._player_by_id.values()
+                for player in players
                 if player.player_id not in exclude_player_ids
             ]
-            if not players:
-                return
-        else:
-            players = list(self._player_by_id.values())
+
+        if not players:
+            return
 
         _LOGGER.debug("broadcasting message to %s player(s)", len(players))
         exceptions = await asyncio.gather(
@@ -309,18 +361,23 @@ class Lobby:
                 "failed to send message to player %s: %s", player.player_id, exc
             )
 
-    async def _on_player_disconnect(self, player: Player) -> None:
+    async def _on_player_leave(self, player: Player) -> None:
         del self._player_by_id[player.player_id]
         player.set_poll_task(None)
 
         if self._state == LobbyState.SHUTDOWN:
             return
 
+        await self._broadcast(
+            PlayerLeftMessage.from_payload(
+                PlayerLeftPayload(player=player.get_player_info_model())
+            ),
+        )
+
         if collector := self._player_moves_collector:
             collector.remove_player(player.player_id)
         if collector := self._player_ready_collector:
             collector.remove_player(player.player_id)
-        # TODO handle
 
     async def _on_player_msg(self, player: Player, msg: Message) -> None:
         error: ErrorPayload | None = None
@@ -431,8 +488,13 @@ class Lobby:
         collect_result = await self._player_moves_collector.wait_with_grace_period(
             delay=ROUND_DURATION, grace_period=ROUND_GRACE_PERIOD
         )
-        # TODO: handle players that didn't submit in time. They should be considered disconnected
         self._player_moves_collector = None
+        for player_id in collect_result.missing_player_ids:
+            # disconnect all player that didn't submit any moves
+            if player := self._player_by_id.get(player_id):
+                await player.disconnect_silent(
+                    code=_WS_CLOSE_PROTOCOL_ERROR, reason="no moves submitted"
+                )
 
         # execute moves
         timeline = self._board.perform_all_player_moves(collect_result.collected)
@@ -451,10 +513,9 @@ class Lobby:
             )
         )
 
-        collect_result = await self._player_ready_collector.wait_up_to(
+        await self._player_ready_collector.wait_up_to(
             timeout=estimated_animation_duration
         )
-        # TODO: take care of players that aren't ready
         self._player_ready_collector = None
 
         return game_over_model is not None

@@ -27,7 +27,7 @@ from ld51_server.protocol import (
     HostStartGameMessage,
     HostStartGamePayload,
     Message,
-    MessagePayloadT,
+    MessagePayloadType,
     PlayerJoinedPayload,
     PlayerMovesMessage,
     PlayerMovesPayload,
@@ -50,9 +50,14 @@ def _lobby_connect_ws(client: TestClient, lobby_id: str) -> WebSocketTestSession
     return ws
 
 
-def _rx_msg_payload(ws: WebSocketTestSession) -> MessagePayloadT:
-    raw = ws.receive_json()
-    msg = Message.parse_obj(raw)
+def _rx_msg_payload(
+    ws: WebSocketTestSession, *, timeout: float = 0.2
+) -> MessagePayloadType:
+    raw = ws._send_queue.get(timeout=timeout)  # type: ignore
+    if isinstance(raw, BaseException):
+        raise raw
+    ws._raise_on_close(raw)  # type: ignore
+    msg = Message.parse_raw(raw["text"])
     return msg.payload
 
 
@@ -67,7 +72,7 @@ def _tx_msg_broadcast(
         _tx_msg(ws, msg)
 
 
-_MT = TypeVar("_MT", bound=MessagePayloadT)
+_MT = TypeVar("_MT", bound=MessagePayloadType)
 
 
 def _rx_msg_payload_type(ws: WebSocketTestSession, ty: Type[_MT]) -> _MT:

@@ -110,7 +110,7 @@ class ClientDefinedPlatform(BoardPlatformABC):
     def __init__(self, model: BoardPlatformModel) -> None:
         self._tile_by_pos = {tile.position: tile for tile in model.tiles}
         self._on_board_positions = {
-            tile.position for tile in model.tiles if not tile.tile_type.is_off_board()
+            tile.position for tile in model.tiles if not tile.tile_type.is_off_board()  # type: ignore
         }
 
     def is_position_on_board(self, pos: Position) -> bool:

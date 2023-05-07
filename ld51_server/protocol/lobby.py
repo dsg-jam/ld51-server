@@ -24,9 +24,18 @@ class ServerHelloMessage(BaseMessage[Literal["server_hello"], ServerHelloPayload
 
 class PlayerJoinedPayload(BaseModel):
     player: PlayerInfo
+    reconnect: bool
 
 
 class PlayerJoinedMessage(BaseMessage[Literal["player_joined"], PlayerJoinedPayload]):
+    ...
+
+
+class PlayerLeftPayload(BaseModel):
+    player: PlayerInfo
+
+
+class PlayerLeftMessage(BaseMessage[Literal["player_left"], PlayerLeftPayload]):
     ...
 
 
@@ -55,16 +64,18 @@ class ServerStartGameMessage(
     ...
 
 
-LobbyMessagePayloadT = Union[
+LobbyMessagePayloadType = Union[
     ServerHelloPayload,
     PlayerJoinedPayload,
+    PlayerLeftPayload,
     HostStartGamePayload,
     ServerStartGamePayload,
 ]
 
-LobbyMessageT = Union[
+LobbyMessageType = Union[
     ServerHelloMessage,
     PlayerJoinedMessage,
+    PlayerLeftMessage,
     HostStartGameMessage,
     ServerStartGameMessage,
 ]
@@ -74,10 +85,12 @@ __all__ = [
     "ServerHelloMessage",
     "PlayerJoinedPayload",
     "PlayerJoinedMessage",
+    "PlayerLeftPayload",
+    "PlayerLeftMessage",
     "HostStartGamePayload",
     "HostStartGameMessage",
     "ServerStartGamePayload",
     "ServerStartGameMessage",
-    "LobbyMessageT",
-    "LobbyMessagePayloadT",
+    "LobbyMessageType",
+    "LobbyMessagePayloadType",
 ]

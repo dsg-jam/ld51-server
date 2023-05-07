@@ -20,8 +20,7 @@ class Direction(str, enum.Enum):
                 return self.RIGHT
             case self.RIGHT:
                 return self.LEFT
-            case _:
-                raise NotImplementedError
+        raise NotImplementedError
 
 
 class PieceAction(str, enum.Enum):
@@ -43,8 +42,7 @@ class PieceAction(str, enum.Enum):
                 return Direction.LEFT
             case self.MOVE_RIGHT:
                 return Direction.RIGHT
-            case _:
-                raise NotImplementedError
+        raise NotImplementedError
 
 
 class Position(BaseModel):
@@ -67,8 +65,6 @@ class Position(BaseModel):
                 x -= steps
             case Direction.RIGHT:
                 x += steps
-            case _:
-                raise NotImplementedError
         return type(self)(x=x, y=y)
 
 
