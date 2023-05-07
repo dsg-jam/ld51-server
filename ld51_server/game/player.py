@@ -7,7 +7,7 @@ from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.encoders import jsonable_encoder
 
 from ..models import PlayerInfo
-from ..protocol import BaseMessage, Message
+from ..protocol import BaseMessage, Message, ws_close_code
 
 _LOGGER = logging.getLogger()
 
@@ -83,12 +83,12 @@ class Player:
         raw_msg = await self._ws.receive_json(mode=_WS_MODE)
         return Message.parse_obj(raw_msg)
 
-    async def disconnect(self, code: int, reason: str | None = None) -> None:
-        await self._ws.close(code=code, reason=reason)
+    async def disconnect(self, code: ws_close_code.Code) -> None:
+        await self._ws.close(**code)
 
-    async def disconnect_silent(self, code: int, reason: str | None = None) -> bool:
+    async def disconnect_silent(self, code: ws_close_code.Code) -> bool:
         try:
-            await self.disconnect(code, reason)
+            await self.disconnect(code)
         except WebSocketDisconnect:
             return False
         return True

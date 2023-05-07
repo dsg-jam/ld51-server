@@ -1,10 +1,11 @@
+import contextlib
 import time
 import uuid
 from typing import Any, Type, TypeVar
 
+import starlette.types
 from fastapi.encoders import jsonable_encoder
-from fastapi.testclient import TestClient
-from starlette.testclient import WebSocketTestSession
+from starlette.testclient import TestClient, WebSocketTestSession
 
 from ld51_server import app
 from ld51_server.models import (
@@ -28,6 +29,7 @@ from ld51_server.protocol import (
     Message,
     MessagePayloadType,
     PlayerJoinedPayload,
+    PlayerLeftPayload,
     PlayerMovesMessage,
     PlayerMovesPayload,
     ReadyForNextRoundMessage,
@@ -38,25 +40,56 @@ from ld51_server.protocol import (
     ServerStartGamePayload,
 )
 
-
-def _create_lobby(client: TestClient) -> str:
-    resp = client.post("/lobby")
-    return resp.json()["lobby_id"]
+_DEFAULT_TIMEOUT: float = 0.2  # 200 ms
 
 
-def _lobby_connect_ws(client: TestClient, lobby_id: str) -> WebSocketTestSession:
-    ws: WebSocketTestSession = client.websocket_connect(f"/lobby/{lobby_id}/join")
+def _create_lobby_raw(client: TestClient) -> dict[str, Any]:
+    resp = client.post("/lobby", timeout=_DEFAULT_TIMEOUT)
+    return resp.json()
+
+
+def _create_lobby_get_lobby_id(client: TestClient) -> str:
+    return _create_lobby_raw(client)["lobby_id"]
+
+
+def _create_lobby_get_join_code(client: TestClient) -> str:
+    return _create_lobby_raw(client)["join_code"]
+
+
+def _lobby_connect_ws(
+    client: TestClient,
+    lobby_id: str,
+    *,
+    session_id: str | None = None,
+    timeout: float = 0.5,
+) -> WebSocketTestSession:
+    params = {}
+    if session_id is not None:
+        params["session_id"] = session_id
+    ws: WebSocketTestSession = client.websocket_connect(
+        f"/lobby/{lobby_id}/join",
+        params=params,
+        timeout=timeout,
+    )
+
+    def _patched_receive(
+        self: WebSocketTestSession, *, timeout: float = _DEFAULT_TIMEOUT
+    ) -> starlette.types.Message:
+        message = self._send_queue.get(timeout=timeout)  # type: ignore
+        if isinstance(message, BaseException):
+            raise message
+        return message
+
+    # NOTE: we patch the receive method to have a reasonable timeout
+    ws.receive = _patched_receive.__get__(ws, WebSocketTestSession)
+
     return ws
 
 
 def _rx_msg_payload(
-    ws: WebSocketTestSession, *, timeout: float = 0.2
+    ws: WebSocketTestSession,
 ) -> MessagePayloadType:
-    raw = ws._send_queue.get(timeout=timeout)  # type: ignore
-    if isinstance(raw, BaseException):
-        raise raw
-    ws._raise_on_close(raw)  # type: ignore
-    msg = Message.parse_raw(raw["text"])
+    msg = Message.parse_raw(ws.receive_text())
     return msg.payload
 
 
@@ -74,7 +107,10 @@ def _tx_msg_broadcast(
 _MT = TypeVar("_MT", bound=MessagePayloadType)
 
 
-def _rx_msg_payload_type(ws: WebSocketTestSession, ty: Type[_MT]) -> _MT:
+def _rx_msg_payload_type(
+    ws: WebSocketTestSession,
+    ty: Type[_MT],
+) -> _MT:
     payload = _rx_msg_payload(ws)
     assert isinstance(payload, ty)
     return payload
@@ -82,7 +118,7 @@ def _rx_msg_payload_type(ws: WebSocketTestSession, ty: Type[_MT]) -> _MT:
 
 def test_join_two_players():
     client = TestClient(app)
-    lobby_id = _create_lobby(client)
+    lobby_id = _create_lobby_get_lobby_id(client)
 
     with _lobby_connect_ws(client, lobby_id) as ws1:
         # first the host should've received a hello msg
@@ -100,6 +136,89 @@ def test_join_two_players():
             data = _rx_msg_payload_type(ws1, PlayerJoinedPayload)
             assert data.player.id == other_player_id
             assert data.player.number == 2
+            assert data.reconnect is False
+
+
+def test_join_with_code():
+    client = TestClient(app)
+    join_code = _create_lobby_get_join_code(client)
+    assert len(join_code) == 3  # make sure we're getting short codes
+
+    with _lobby_connect_ws(client, join_code) as ws1:
+        # first the host should've received a hello msg
+        data = _rx_msg_payload_type(ws1, ServerHelloPayload)
+        assert data.is_host is True
+        assert data.player.number == 1
+
+        with _lobby_connect_ws(client, join_code) as ws2:
+            # and the other player too
+            data = _rx_msg_payload_type(ws2, ServerHelloPayload)
+            other_player_id = data.player.id
+            assert data.is_host is False
+
+            # the host should receive a join message for the other player
+            data = _rx_msg_payload_type(ws1, PlayerJoinedPayload)
+            assert data.player.id == other_player_id
+            assert data.player.number == 2
+            assert data.reconnect is False
+
+
+def test_player_leave():
+    client = TestClient(app)
+    lobby_id = _create_lobby_get_lobby_id(client)
+
+    import ld51_server.game.lobby
+
+    ld51_server.game.lobby.PLAYER_RECONNECT_DURATION = 0.1
+
+    with _lobby_connect_ws(client, lobby_id) as ws1:
+        data = _rx_msg_payload_type(ws1, ServerHelloPayload)
+
+        with _lobby_connect_ws(client, lobby_id) as ws2:
+            data = _rx_msg_payload_type(ws2, ServerHelloPayload)
+            other_player_id = data.player.id
+            data = _rx_msg_payload_type(ws1, PlayerJoinedPayload)
+
+        # ws2 disconnected, we should receive a 'player left' message
+        data = _rx_msg_payload_type(ws1, PlayerLeftPayload)
+        assert data.player.id == other_player_id
+
+
+def test_player_reconnect():
+    client = TestClient(app)
+    lobby_id = _create_lobby_get_lobby_id(client)
+
+    import ld51_server.game.lobby
+
+    ld51_server.game.lobby.PLAYER_RECONNECT_DURATION = 3.0
+
+    with contextlib.ExitStack() as exit_stack:
+        ws1 = exit_stack.enter_context(_lobby_connect_ws(client, lobby_id))
+        data = _rx_msg_payload_type(ws1, ServerHelloPayload)
+
+        ws2 = exit_stack.enter_context(_lobby_connect_ws(client, lobby_id))
+        data = _rx_msg_payload_type(ws2, ServerHelloPayload)
+        other_player_id = data.player.id
+        other_session_id = data.session_id
+        print(f"session id: {other_session_id}")
+
+        data = _rx_msg_payload_type(ws1, PlayerJoinedPayload)
+        assert data.reconnect is False
+
+        # simulate lost connection
+        ws2.close()
+
+        # and then reconnect
+        ws2 = exit_stack.enter_context(
+            _lobby_connect_ws(client, lobby_id, session_id=str(other_session_id))
+        )
+        data = _rx_msg_payload_type(ws2, ServerHelloPayload)
+        # make sure player id and session id hasn't changed
+        assert data.player.id == other_player_id
+        assert data.session_id == other_session_id
+
+        data = _rx_msg_payload_type(ws1, PlayerJoinedPayload)
+        assert data.reconnect is True
 
 
 def _game_first_round(
@@ -218,7 +337,7 @@ def _game_second_round(
 
 def test_game():
     client = TestClient(app)
-    lobby_id = _create_lobby(client)
+    lobby_id = _create_lobby_get_lobby_id(client)
 
     import ld51_server.game.lobby
 

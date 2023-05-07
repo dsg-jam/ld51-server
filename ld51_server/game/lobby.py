@@ -31,6 +31,7 @@ from ..protocol import (
     ServerHelloPayload,
     ServerStartGameMessage,
     ServerStartGamePayload,
+    ws_close_code,
 )
 from .board import Board, IllegalPlayerMoveError
 from .board_platform import ClientDefinedPlatform
@@ -44,10 +45,6 @@ PRE_GAME_DURATION: float = 5.0
 PLAYER_RECONNECT_DURATION: float = 10.0
 DURATION_PER_EVENT: float = 5.0
 PIECES_PER_PLAYER: int = 3
-
-# see: <https://www.rfc-editor.org/rfc/rfc6455.html#section-7.4>
-_WS_CLOSE_GOING_AWAY = 1001
-_WS_CLOSE_PROTOCOL_ERROR = 1002
 
 
 class LobbyState(enum.IntEnum):
@@ -142,6 +139,8 @@ class PlayerItemCollector(Generic[_ItemT]):
 
 
 class Lobby:
+    join_code: str | None
+
     _id: uuid.UUID
     _state: LobbyState
     _created_at: datetime
@@ -156,6 +155,8 @@ class Lobby:
     _player_ready_collector: PlayerItemCollector[ReadyForNextRoundPayload] | None
 
     def __init__(self) -> None:
+        self.join_code = None
+
         self._id = uuid.uuid4()
         self._state = LobbyState.EMPTY
         self._created_at = datetime.now()
@@ -183,10 +184,17 @@ class Lobby:
     def get_player_count(self) -> int:
         return len(self._player_by_id)
 
-    def get_player_info_models(self) -> list[PlayerInfo]:
-        return [
-            player.get_player_info_model() for player in self._player_by_id.values()
-        ]
+    def get_player_info_models(
+        self, *, exclude_player_ids: set[uuid.UUID] | None = None
+    ) -> list[PlayerInfo]:
+        players = self._player_by_id.values()
+        if exclude_player_ids:
+            players = (
+                player
+                for player in players
+                if player.player_id not in exclude_player_ids
+            )
+        return [player.get_player_info_model() for player in players]
 
     def is_joinable(self) -> bool:
         match self._state:
@@ -201,7 +209,7 @@ class Lobby:
         self._state = LobbyState.SHUTDOWN
         await asyncio.gather(
             *(
-                player.disconnect_silent(_WS_CLOSE_GOING_AWAY, "lobby shutting down")
+                player.disconnect_silent(ws_close_code.LOBBY_SHUTDOWN)
                 for player in self._player_by_id.values()
             )
         )
@@ -231,6 +239,32 @@ class Lobby:
             )
         )
 
+    async def _inform_player_connected(
+        self, player: Player, *, reconnect: bool
+    ) -> None:
+        player_info_model = player.get_player_info_model()
+
+        # send 'server hello' to the newly connected player
+        await player.send_msg_silent(
+            ServerHelloMessage.from_payload(
+                ServerHelloPayload(
+                    session_id=player.session_id,
+                    is_host=player.player_id == self._host_player_id,
+                    player=player_info_model,
+                    other_players=self.get_player_info_models(
+                        exclude_player_ids={player.player_id}
+                    ),
+                )
+            )
+        )
+        # send 'player joined' to everyone else
+        await self._broadcast(
+            PlayerJoinedMessage.from_payload(
+                PlayerJoinedPayload(player=player_info_model, reconnect=reconnect)
+            ),
+            exclude_player_ids={player.player_id},
+        )
+
     async def reconnect_player(
         self, ws: WebSocket, session_id: uuid.UUID
     ) -> Player | None:
@@ -241,19 +275,15 @@ class Lobby:
         else:
             return None
 
+        await ws.accept()
         player.replace_ws(ws)
         self._set_player_poll_task(player)
 
-        await self._broadcast(
-            PlayerJoinedMessage.from_payload(
-                PlayerJoinedPayload(
-                    player=player.get_player_info_model(), reconnect=True
-                )
-            ),
-            exclude_player_ids={player.player_id},
-        )
+        _LOGGER.info("player %s reconnected", player.player_id)
+        await self._inform_player_connected(player, reconnect=True)
 
         # TODO: bring the player up to speed with what's currently happening
+        return player
 
     async def join_player(self, ws: WebSocket) -> Player:
         assert self.is_joinable
@@ -264,30 +294,14 @@ class Lobby:
             self._host_player_id = player.player_id
             self._state = LobbyState.LOBBY
 
-        # grab the list of other players before adding the new player
-        other_players = self.get_player_info_models()
+        _LOGGER.info(
+            "player %s joined as number %s", player.player_id, player.player_number
+        )
 
         self._player_by_id[player.player_id] = player
         self._set_player_poll_task(player)
 
-        player_id = player.player_id
-        player_info_model = player.get_player_info_model()
-        await player.send_msg_silent(
-            ServerHelloMessage.from_payload(
-                ServerHelloPayload(
-                    session_id=player.session_id,
-                    is_host=player_id == self._host_player_id,
-                    player=player_info_model,
-                    other_players=other_players,
-                )
-            )
-        )
-        await self._broadcast(
-            PlayerJoinedMessage.from_payload(
-                PlayerJoinedPayload(player=player_info_model, reconnect=False)
-            ),
-            exclude_player_ids={player_id},
-        )
+        await self._inform_player_connected(player, reconnect=False)
         return player
 
     async def __player_poll_loop(self, player: Player) -> None:
@@ -300,9 +314,7 @@ class Lobby:
                 _LOGGER.warning(
                     "player %s sent an invalid message: %s", player.player_id, exc
                 )
-                await player.disconnect(
-                    code=_WS_CLOSE_PROTOCOL_ERROR, reason="invalid message"
-                )
+                await player.disconnect(ws_close_code.INVALID_MESSAGE)
                 break
 
             try:
@@ -319,6 +331,7 @@ class Lobby:
         if self._state == LobbyState.SHUTDOWN:
             return
 
+        _LOGGER.warning("player %s lost connecting", player.player_id)
         # player lost connection, start waiting hoping for them to reconnect.
         # If they do, this current poll loop task will be cancelled and replaced with a fresh one, so we won't get past this line.
         await asyncio.sleep(PLAYER_RECONNECT_DURATION)
@@ -362,6 +375,8 @@ class Lobby:
             )
 
     async def _on_player_leave(self, player: Player) -> None:
+        _LOGGER.info("player %s left the lobby", player.player_id)
+
         del self._player_by_id[player.player_id]
         player.set_poll_task(None)
 
@@ -492,9 +507,7 @@ class Lobby:
         for player_id in collect_result.missing_player_ids:
             # disconnect all player that didn't submit any moves
             if player := self._player_by_id.get(player_id):
-                await player.disconnect_silent(
-                    code=_WS_CLOSE_PROTOCOL_ERROR, reason="no moves submitted"
-                )
+                await player.disconnect_silent(ws_close_code.NO_MOVES_SUBMITTED)
 
         # execute moves
         timeline = self._board.perform_all_player_moves(collect_result.collected)
