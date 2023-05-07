@@ -29,12 +29,12 @@ jobs:
 
       - id: gcp_auth
         name: "Authenticate to Google Cloud"
-        uses: "google-github-actions/auth@v0"
+        uses: "google-github-actions/auth@v1"
         with:
           credentials_json: "${{ secrets.GCP_CREDENTIALS }}"
 
       - name: "Set up Google Cloud SDK"
-        uses: "google-github-actions/setup-gcloud@v0"
+        uses: "google-github-actions/setup-gcloud@v1"
         with:
           install_components: "beta"
 
@@ -70,4 +70,4 @@ jobs:
       - name: Configure deployment
         run: |
           gcloud run services set-iam-policy "${{ env.GCP_SERVICE_ID }}" deploy/knative/gcp-iam-policy.yaml
-          gcloud beta run domain-mappings create --service "${{ env.GCP_SERVICE_ID }}" --domain "${{ env.GCP_DOMAIN }}"
+          gcloud beta run domain-mappings create --force-override --service "${{ env.GCP_SERVICE_ID }}" --domain "${{ env.GCP_DOMAIN }}"

@@ -1,5 +1,6 @@
 import dataclasses
 import itertools
+import typing
 import uuid
 from random import Random
 
@@ -347,8 +348,14 @@ class Board:
     ) -> list[TimelineEvent]:
         events: list[TimelineEvent] = []
         for move_by_player in itertools.zip_longest(
-            *validated_moves_by_player.values()
+            *validated_moves_by_player.values(),
+            fillvalue=None,
         ):
+            # NOTE: we're casting here because pylance appears to use the wrong signature for `zip_longest`.
+            move_by_player = typing.cast(
+                tuple[TimelineEventAction | None], move_by_player
+            )
+
             # take the nth move for every player...
             moves: list[TimelineEventAction] = [
                 move for move in move_by_player if move is not None

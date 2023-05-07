@@ -40,6 +40,9 @@ class Player:
     def session_id(self) -> uuid.UUID:
         return self._session_id
 
+    def replace_ws(self, ws: WebSocket) -> None:
+        self._ws = ws
+
     def get_player_info_model(self) -> PlayerInfo:
         return PlayerInfo(
             id=self._id,
@@ -88,5 +91,4 @@ class Player:
             await self.disconnect(code, reason)
         except WebSocketDisconnect:
             return False
-        else:
-            return True
+        return True

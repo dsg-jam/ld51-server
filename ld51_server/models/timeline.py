@@ -49,11 +49,11 @@ class PushConflictOutcome(BaseModel):
         return cls(type="push_conflict", payload=payload)
 
 
-OutcomeT = Annotated[
+OutcomeType = Annotated[
     Union[MoveConflictOutcome, PushOutcome, PushConflictOutcome],
     Field(discriminator="type"),
 ]
-OutcomePayloadT = Union[
+OutcomePayloadType = Union[
     MoveConflictOutcomePayload,
     PushOutcomePayload,
     PushConflictOutcomePayload,
@@ -68,7 +68,7 @@ class TimelineEventAction(BaseModel):
 
 class TimelineEvent(BaseModel):
     actions: list[TimelineEventAction]
-    outcomes: list[OutcomeT]
+    outcomes: list[OutcomeType]
 
     def is_empty(self) -> bool:
         return (not self.actions) and (not self.outcomes)
@@ -81,8 +81,8 @@ __all__ = [
     "PushOutcome",
     "PushConflictOutcomePayload",
     "PushConflictOutcome",
-    "OutcomeT",
-    "OutcomePayloadT",
+    "OutcomeType",
+    "OutcomePayloadType",
     "TimelineEventAction",
     "TimelineEvent",
 ]
