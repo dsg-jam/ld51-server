@@ -346,19 +346,29 @@ class Board:
     def perform_all_player_moves(
         self, validated_moves_by_player: dict[uuid.UUID, list[TimelineEventAction]]
     ) -> list[TimelineEvent]:
+        # restructure moves to be by piece instead of players
+        validated_moves_by_piece: dict[uuid.UUID, list[TimelineEventAction]] = {}
+        for moves in validated_moves_by_player.values():
+            for move in moves:
+                try:
+                    piece_moves = validated_moves_by_piece[move.piece_id]
+                except KeyError:
+                    piece_moves = validated_moves_by_piece[move.piece_id] = []
+                piece_moves.append(move)
+
         events: list[TimelineEvent] = []
-        for move_by_player in itertools.zip_longest(
-            *validated_moves_by_player.values(),
+        for move_by_piece in itertools.zip_longest(
+            *validated_moves_by_piece.values(),
             fillvalue=None,
         ):
             # NOTE: we're casting here because pylance appears to use the wrong signature for `zip_longest`.
-            move_by_player = typing.cast(
-                tuple[TimelineEventAction | None], move_by_player
+            move_by_piece = typing.cast(
+                tuple[TimelineEventAction | None, ...], move_by_piece
             )
 
             # take the nth move for every player...
             moves: list[TimelineEventAction] = [
-                move for move in move_by_player if move is not None
+                move for move in move_by_piece if move is not None
             ]
             # ... and run them in parallel
             events.extend(self.perform_player_moves(moves))
