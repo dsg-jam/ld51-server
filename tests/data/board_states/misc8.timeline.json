@@ -1,0 +1,28 @@
+[
+  {
+    "actions": [
+      {
+        "player_id": "00000000-0000-0000-0000-000000000000",
+        "piece_id": "57843557-76b2-5568-9503-d05ad730b08e",
+        "action": "move_left"
+      },
+      {
+        "player_id": "00000000-0000-0000-0000-000000000000",
+        "piece_id": "f316ebf4-0f97-592f-b8e9-b625908bad5a",
+        "action": "move_right"
+      }
+    ],
+    "outcomes": [
+      {
+        "type": "push_conflict",
+        "payload": {
+          "piece_ids": [
+            "57843557-76b2-5568-9503-d05ad730b08e",
+            "f316ebf4-0f97-592f-b8e9-b625908bad5a"
+          ],
+          "collision_point": null
+        }
+      }
+    ]
+  }
+]
